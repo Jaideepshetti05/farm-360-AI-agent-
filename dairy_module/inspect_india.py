@@ -1,0 +1,12 @@
+import pandas as pd
+
+df = pd.read_csv("data/dairy/Milk Production in India.csv")
+
+print("\nFirst 5 rows:")
+print(df.head())
+
+print("\nColumns:")
+print(df.columns)
+
+print("\nInfo:")
+print(df.info())

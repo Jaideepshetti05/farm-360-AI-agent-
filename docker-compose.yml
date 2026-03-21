@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  farm360-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: farm360_agent_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - FARM360_API_KEY=${FARM360_API_KEY:-secure-secret-key-1234}
+    volumes:
+      # Mount models folder dynamically avoiding large container images if preferred
+      - ./models:/app/models
+      - ./crop_regression/models:/app/crop_regression/models
+      - ./crop_vision/models:/app/crop_vision/models
+    restart: always
+
+  # Optional Frontend Mock Service Configuration
+  farm360-frontend:
+    image: node:20-alpine
+    container_name: farm360_nextjs_frontend
+    working_dir: /app
+    volumes:
+      - ./farm360_nextjs:/app
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run build && npm start"
+    depends_on:
+      - farm360-backend

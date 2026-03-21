@@ -1,0 +1,127 @@
+# =============================================================================
+# Farm360 AI Project - .gitignore
+# =============================================================================
+
+# ─── Python Virtual Environment ───────────────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ─── Machine Learning Model Files (large binary artifacts) ────────────────────
+*.pkl
+*.pth
+*.h5
+*.hdf5
+*.ckpt
+*.pb
+*.onnx
+*.tflite
+*.joblib
+*.npy
+*.npz
+
+# ML model folders
+models/
+crop_vision/models/
+animal_module/models/
+dairy_module/models/
+vision_v2/embeddings/
+
+# ─── Environment & Secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.env
+farm360_agent/.env
+farm360_nextjs/.env.local
+
+# ─── Next.js ──────────────────────────────────────────────────────────────────
+farm360_nextjs/.next/
+farm360_nextjs/out/
+farm360_nextjs/node_modules/
+farm360_nextjs/.pnp
+farm360_nextjs/.pnp.js
+farm360_nextjs/npm-debug.log*
+farm360_nextjs/yarn-debug.log*
+farm360_nextjs/yarn-error.log*
+
+# ─── Node / JavaScript ────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# ─── Temporary Server & Upload Files ──────────────────────────────────────────
+farm360_agent/temp_uploads/
+farm360_agent/server.log
+farm360_agent/logs/memory.json
+
+# ─── Python Test / Cache ──────────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.pyre/
+htmlcov/
+.coverage
+*.cover
+.hypothesis/
+
+# ─── Data Files (raw CSVs / datasets - too large for git) ─────────────────────
+data/
+health_module/animal_disease_dataset.csv
+
+# ─── Reports & Visualizations (auto-generated outputs) ────────────────────────
+reports/
+visualizations/
+*.txt
+!farm360_agent/README.md
+!farm360_nextjs/README.md
+!README.md
+
+# ─── Jupyter Notebooks Checkpoints ───────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ─── OS & Editor Files ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ─── Docker Volumes & Build ───────────────────────────────────────────────────
+.docker/
+
+# ─── PDF / Generated Reports ──────────────────────────────────────────────────
+*.pdf
+generate_pdf.py
+test_api.py
+test_imports.py
+check_imports_ast.py
+test_logs.txt
+
+venv/
+node_modules/
+.next/
+.env
+.env.local
+data/
+models/
+*.pkl
+*.pth
+*.h5
+*.pt
+*.csv
+*.zip
