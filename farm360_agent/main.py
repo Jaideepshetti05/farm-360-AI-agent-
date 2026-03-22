@@ -1,8 +1,7 @@
 import os
 import sys
 from loguru import logger
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
@@ -86,13 +85,21 @@ class Farm360Agent:
             query += f"\n\n[System Note: The user uploaded an image. Vision Pipeline Analysis: {eval_text}]"
         
         try:
-            config = types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                tools=[predict_crop_yield, predict_dairy_production, predict_animal_disease, get_weather_forecast],
-                temperature=0.4
-            )
-            chat = self.client.chats.create(model='gemini-2.5-flash', config=config)
-            response = chat.send_message(query)
+            # Using genai.types to avoid NameError
+            config = {
+                "system_instruction": system_instruction,
+                "tools": [predict_crop_yield, predict_dairy_production, predict_animal_disease, get_weather_forecast],
+                "temperature": 0.4
+            }
+            # Attempt to use GenerativeModel if Client is not available (common in old SDK)
+            if not hasattr(genai, 'Client'):
+                model = genai.GenerativeModel('gemini-1.5-flash', tools=config["tools"], system_instruction=config["system_instruction"])
+                chat = model.start_chat()
+                response = chat.send_message(query)
+            else:
+                self.client = genai.Client(api_key=settings.google_api_key)
+                chat = self.client.chats.create(model='gemini-2.5-flash', config=config)
+                response = chat.send_message(query)
             
             self.memory.add_message(self.session_id, "user", query)
             self.memory.add_message(self.session_id, "assistant", response.text)

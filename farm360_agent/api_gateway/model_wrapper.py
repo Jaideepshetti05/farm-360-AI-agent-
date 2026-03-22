@@ -18,9 +18,13 @@ class Farm360API:
     def __init__(self):
         logger.info("Initializing ML Models...")
         
+        # In Docker, models are mounted at /app/<model_folder>
+        # Check if running in Docker by checking mount points
+        docker_mount_base = "/app" if os.path.exists("/app") and os.path.isdir("/app") else BASE_DIR
+        
         # 1. Crop Regression
         logger.info("Loading Crop Production Regression Model...")
-        self.crop_model_path = os.path.join(BASE_DIR, settings.crop_model_path.lstrip("..\\").lstrip("../"))
+        self.crop_model_path = os.path.join(docker_mount_base, settings.crop_model_path)
         
         if not os.path.exists(self.crop_model_path):
             logger.error(f"Missing critical crop model: {self.crop_model_path}")
@@ -29,7 +33,7 @@ class Farm360API:
 
         # 2. Dairy Regression
         logger.info("Loading Dairy Intelligence Model...")
-        self.dairy_model_path = os.path.join(BASE_DIR, settings.dairy_model_path.lstrip("..\\").lstrip("../"))
+        self.dairy_model_path = os.path.join(docker_mount_base, settings.dairy_model_path)
         if not os.path.exists(self.dairy_model_path):
              logger.error(f"Missing dairy model: {self.dairy_model_path}")
              raise FileNotFoundError(f"Missing dairy model: {self.dairy_model_path}")
@@ -39,7 +43,7 @@ class Farm360API:
 
         # 3. Animal Disease Model
         logger.info("Loading Animal Disease Classification Model...")
-        self.animal_model_dir = os.path.join(BASE_DIR, settings.animal_model_dir.lstrip("..\\").lstrip("../"))
+        self.animal_model_dir = os.path.join(docker_mount_base, settings.animal_model_dir)
         
         if not os.path.exists(self.animal_model_dir):
             logger.error(f"Missing animal model directory: {self.animal_model_dir}")
@@ -58,7 +62,7 @@ class Farm360API:
 
         # 4. Crop Vision Model
         logger.info("Loading Crop Disease Vision Model (ResNet18)...")
-        self.vision_model_path = os.path.join(BASE_DIR, settings.crop_vision_model_path.lstrip("..\\").lstrip("../"))
+        self.vision_model_path = os.path.join(docker_mount_base, settings.crop_vision_model_path)
         if not os.path.exists(self.vision_model_path):
              logger.error(f"Missing vision model weights: {self.vision_model_path}")
              raise FileNotFoundError(f"Missing vision model weights: {self.vision_model_path}")
