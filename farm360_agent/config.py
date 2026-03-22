@@ -2,7 +2,8 @@ import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    google_api_key: str = "your_actual_google_gemini_api_key_here"
+    # API Keys - loaded from environment variables
+    google_api_key: str = None  # Will be loaded from GOOGLE_API_KEY env var
     farm360_api_key: str = "secure-secret-key-1234"
     
     # Model Paths (using forward slashes for cross-platform compatibility)
@@ -11,6 +12,6 @@ class Settings(BaseSettings):
     animal_model_dir: str = "models/animal_disease_20260218_215356"
     crop_vision_model_path: str = "crop_vision/models/crop_disease_model.pth"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()

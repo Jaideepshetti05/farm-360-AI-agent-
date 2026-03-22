@@ -29,16 +29,30 @@ class Farm360Agent:
         self.user_id = "farmer_1"
         self.use_mock_llm = use_mock_llm
         
-        if not use_mock_llm and settings.google_api_key and settings.google_api_key != "your_actual_google_gemini_api_key_here":
+        # Debug: Log API key status (without exposing the key)
+        api_key_status = "SET" if settings.google_api_key else "NOT SET"
+        logger.debug(f"GOOGLE_API_KEY environment variable: {api_key_status}")
+        print(f"[DEBUG] GOOGLE_API_KEY loaded from env: {api_key_status}")
+        
+        # Initialize GenAI LLM if API key is available and not in mock mode
+        if not use_mock_llm and settings.google_api_key:
             try:
+                genai.configure(api_key=settings.google_api_key)
                 self.client = genai.Client(api_key=settings.google_api_key)
                 self.has_llm = True
                 logger.success("GenAI LLM Orchestrator Configured Successfully.")
+                print("[DEBUG] ✅ Real AI responses ENABLED - Using Gemini model")
             except Exception as e:
                 logger.warning(f"GenAI configuration failed: {e}. Falling back to deterministic.")
                 self.has_llm = False
+                print(f"[DEBUG] ❌ GenAI setup failed: {e}")
         else:
-            logger.warning("No valid GOOGLE_API_KEY found in config. Using Deterministic Fallback.")
+            if use_mock_llm:
+                logger.info("Mock LLM mode enabled - using deterministic responses")
+                print("[DEBUG] ℹ️ Mock LLM mode enabled")
+            else:
+                logger.warning("No valid GOOGLE_API_KEY found. Using Deterministic Fallback.")
+                print("[DEBUG] ❌ No GOOGLE_API_KEY found - using fallback")
             self.has_llm = False
 
     def process_query_llm(self, query, image_path=None):
@@ -108,8 +122,9 @@ CRITICAL RESPONSE INSTRUCTIONS:
             return response.text
         except Exception as e:
             logger.error(f"LLM Failure: {str(e)}")
-            # Fallback to enhanced deterministic response with smart prompt
-            return self._generate_smart_fallback_response(query, image_path)
+            print(f"[DEBUG] LLM error: {e}")
+            # Clear message that AI is disabled
+            return "⚠️ **AI Service Temporarily Unavailable**\n\nI'm experiencing a technical issue with my AI engine. Please:\n1. Check your internet connection\n2. Verify GOOGLE_API_KEY is correctly configured\n3. Try again in a few moments\n\nFor immediate assistance, you can use our deterministic analysis mode by restarting with `use_mock_llm=True`."
 
     def _generate_smart_fallback_response(self, query, image_path=None):
         """
@@ -276,10 +291,20 @@ CRITICAL RESPONSE INSTRUCTIONS:
         return context
 
     def process_query_deterministic(self, query, image_path=None):
+        """
+        Deterministic fallback mode - used ONLY when LLM is unavailable.
+        This provides basic agricultural analysis using local ML models.
+        """
         logger.info(f"Processing query deterministically: {query[:50]}")
         
-        # Use the enhanced smart fallback response generator
-        return self._generate_smart_fallback_response(query, image_path)
+        # Clear notice that real AI is not enabled
+        notice = "⚠️ **AI Mode Not Enabled**\n\nReal AI responses require a valid GOOGLE_API_KEY. Currently using local ML models only.\n\n"
+        
+        # Generate smart response using local intelligence
+        smart_response = self._generate_smart_fallback_response(query, image_path)
+        
+        # Prepend the notice
+        return notice + smart_response
 
     def chat(self, query, image_path=None):
         if self.has_llm:
