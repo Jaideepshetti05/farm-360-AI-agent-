@@ -27,55 +27,63 @@ class Farm360API:
         self.crop_model_path = os.path.join(docker_mount_base, settings.crop_model_path)
         
         if not os.path.exists(self.crop_model_path):
-            logger.error(f"Missing critical crop model: {self.crop_model_path}")
-            raise FileNotFoundError(f"Missing critical crop model: {self.crop_model_path}")
-        self.crop_model = joblib.load(self.crop_model_path)
+            logger.warning(f"Crop model not found: {self.crop_model_path}. Running in limited mode.")
+            self.crop_model = None
+        else:
+            self.crop_model = joblib.load(self.crop_model_path)
 
         # 2. Dairy Regression
         logger.info("Loading Dairy Intelligence Model...")
         self.dairy_model_path = os.path.join(docker_mount_base, settings.dairy_model_path)
         if not os.path.exists(self.dairy_model_path):
-             logger.error(f"Missing dairy model: {self.dairy_model_path}")
-             raise FileNotFoundError(f"Missing dairy model: {self.dairy_model_path}")
-             
-        with open(self.dairy_model_path, "rb") as f:
-            self.dairy_model = pickle.load(f)
+             logger.warning(f"Dairy model not found: {self.dairy_model_path}. Running in limited mode.")
+             self.dairy_model = None
+        else:
+             with open(self.dairy_model_path, "rb") as f:
+                 self.dairy_model = pickle.load(f)
 
         # 3. Animal Disease Model
         logger.info("Loading Animal Disease Classification Model...")
         self.animal_model_dir = os.path.join(docker_mount_base, settings.animal_model_dir)
         
         if not os.path.exists(self.animal_model_dir):
-            logger.error(f"Missing animal model directory: {self.animal_model_dir}")
-            raise FileNotFoundError(f"Missing animal model directory: {self.animal_model_dir}")
+            logger.warning(f"Animal model directory not found: {self.animal_model_dir}. Running in limited mode.")
+            self.animal_model = None
+            self.animal_scaler = None
+            self.animal_encoders = {}
+        else:
+            self.animal_model = joblib.load(os.path.join(self.animal_model_dir, "RandomForest_Tuned.pkl"))
+            self.animal_scaler = joblib.load(os.path.join(self.animal_model_dir, "classification_scaler.pkl"))
             
-        self.animal_model = joblib.load(os.path.join(self.animal_model_dir, "RandomForest_Tuned.pkl"))
-        self.animal_scaler = joblib.load(os.path.join(self.animal_model_dir, "classification_scaler.pkl"))
-        
-        self.animal_encoders = {}
-        for feat in ["Animal", "Symptom 1", "Symptom 2", "Symptom 3", "Disease"]:
-            enc_file = os.path.join(self.animal_model_dir, f"{feat}_label_encoder.pkl")
-            if not os.path.exists(enc_file):
-                logger.error(f"Missing encoder {enc_file}")
-                raise FileNotFoundError(f"Missing encoder {enc_file}")
-            self.animal_encoders[feat] = joblib.load(enc_file)
+            self.animal_encoders = {}
+            for feat in ["Animal", "Symptom 1", "Symptom 2", "Symptom 3", "Disease"]:
+                enc_file = os.path.join(self.animal_model_dir, f"{feat}_label_encoder.pkl")
+                if not os.path.exists(enc_file):
+                    logger.warning(f"Missing encoder {enc_file}")
+                    self.animal_encoders = {}
+                    self.animal_model = None
+                    break
+                self.animal_encoders[feat] = joblib.load(enc_file)
 
         # 4. Crop Vision Model
         logger.info("Loading Crop Disease Vision Model (ResNet18)...")
         self.vision_model_path = os.path.join(docker_mount_base, settings.crop_vision_model_path)
         if not os.path.exists(self.vision_model_path):
-             logger.error(f"Missing vision model weights: {self.vision_model_path}")
-             raise FileNotFoundError(f"Missing vision model weights: {self.vision_model_path}")
-             
-        self.vision_model = models.resnet18()
-        self.vision_model.fc = nn.Linear(self.vision_model.fc.in_features, 17)
-        self.vision_model.load_state_dict(torch.load(self.vision_model_path, map_location=torch.device('cpu'), weights_only=True))
-        self.vision_model.eval()
+             logger.warning(f"Vision model not found: {self.vision_model_path}. Running in limited mode.")
+             self.vision_model = None
+        else:
+             self.vision_model = models.resnet18()
+             self.vision_model.fc = nn.Linear(self.vision_model.fc.in_features, 17)
+             self.vision_model.load_state_dict(torch.load(self.vision_model_path, map_location=torch.device('cpu'), weights_only=True))
+             self.vision_model.eval()
         
-        logger.success("All ML Models Successfully Initialized in Farm360API!")
+        logger.success("Farm360API Initialized (some models may be unavailable in this environment)")
 
     def predict_crop_yield(self, crop: str, season: str, state: str, area: float, rainfall: float, fertilizer: float, pesticide: float):
         try:
+            if self.crop_model is None:
+                return {"message": "Crop yield model not available in this environment", "predicted_production": None}
+            
             df = pd.DataFrame({
                 "Crop": [crop], "Season": [season], "State": [state], "Area": [area],
                 "Annual_Rainfall": [rainfall], "Fertilizer": [fertilizer], "Pesticide": [pesticide]
@@ -89,6 +97,9 @@ class Farm360API:
 
     def predict_dairy_production(self, years: list):
         try:
+            if self.dairy_model is None:
+                return {"message": "Dairy model not available in this environment"}
+            
             X = np.array([[y] for y in years])
             preds = self.dairy_model.predict(X)
             return {int(y): float(p) for y, p in zip(years, preds)}
@@ -98,6 +109,9 @@ class Farm360API:
 
     def predict_crop_disease_from_image(self, image_tensor):
         try:
+            if self.vision_model is None:
+                return {"message": "Vision model not available in this environment", "class_index": None}
+            
             with torch.no_grad():
                 out = self.vision_model(image_tensor)
                 _, pred = torch.max(out, 1)
@@ -108,6 +122,9 @@ class Farm360API:
 
     def predict_animal_disease(self, animal: str, age: float, temperature: float, symptom1: str, symptom2: str, symptom3: str):
         try:
+            if self.animal_model is None or self.animal_scaler is None or not self.animal_encoders:
+                return {"message": "Animal disease model not available in this environment", "prediction": None}
+            
             def safe_encode(feat_name, val):
                 enc = self.animal_encoders[feat_name]
                 return enc.transform([val])[0] if val in enc.classes_ else 0
