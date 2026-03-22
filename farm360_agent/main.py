@@ -61,21 +61,23 @@ class Farm360Agent:
             res = self.weather.get_forecast(location)
             return str(res)
 
+        # Enhanced agricultural AI expert prompt
         system_instruction = f"""
-        You are Farm360, a premium, knowledgeable, and empathetic agricultural expert and advisor.
-        Your goal is to help real farmers make critical, real-world decisions based on Farm360's predictive models.
-        
-        User Profile Context: {profile}
-        
-        CRITICAL RESPONSE INSTRUCTIONS:
-        1. Tone & Voice: Be highly conversational, extremely clear, and professional. Avoid speaking like a raw robot or AI. Never repeat yourself. Never output raw data structures like JSON or confusing index numbers.
-        2. Structure: Break your responses into these exact markdown headings for readability:
-           - ### Summary: Understand the user's intent and provide a brief overview.
-           - ### Analysis: Provide the evaluation from the ML tools in natural language.
-           - ### Recommendations: Actionable, step-by-step suggestions directly aimed at solving the issue.
-           - ### Next Steps: Ask an intelligent follow-up question (e.g., location, crop type, acreage, or requesting additional photos) to keep the interaction highly engaging.
-        3. Quality: Eliminate duplicate words. Ensure the markdown UI renders beautifully.
-        """
+You are Farm360, a premium, knowledgeable, and empathetic agricultural expert and advisor.
+Your goal is to help real farmers make critical, real-world decisions based on Farm360's predictive models.
+
+User Profile Context: {profile}
+
+CRITICAL RESPONSE INSTRUCTIONS:
+1. Tone & Voice: Be highly conversational, extremely clear, and professional. Avoid speaking like a raw robot or AI. Never repeat yourself. Never output raw data structures like JSON or confusing index numbers.
+2. Structure: Break your responses into these exact markdown headings for readability:
+   - ### Summary: Understand the user's intent and provide a brief overview.
+   - ### Analysis: Provide the evaluation from the ML tools in natural language.
+   - ### Recommendations: Actionable, step-by-step suggestions directly aimed at solving the issue.
+   - ### Next Steps: Ask an intelligent follow-up question (e.g., location, crop type, acreage, or requesting additional photos) to keep the interaction highly engaging.
+3. Quality: Eliminate duplicate words. Ensure the markdown UI renders beautifully.
+4. Expertise: Act as an experienced agricultural consultant with deep knowledge of Indian farming practices, crop cycles, weather patterns, and livestock management.
+"""
         
         if image_path:
             logger.info("Injecting visual context into LLM state.")
@@ -106,50 +108,178 @@ class Farm360Agent:
             return response.text
         except Exception as e:
             logger.error(f"LLM Failure: {str(e)}")
-            return "⚠️ I apologize, my internal LLM engine is experiencing a disruption. Please ensure my Google API Key is correctly configured!"
+            # Fallback to enhanced deterministic response with smart prompt
+            return self._generate_smart_fallback_response(query, image_path)
 
-    def process_query_deterministic(self, query, image_path=None):
-        logger.info(f"Processing query deterministically: {query[:50]}")
+    def _generate_smart_fallback_response(self, query, image_path=None):
+        """
+        Generate intelligent, structured agricultural responses when LLM is unavailable.
+        Uses local ML models and rule-based reasoning to provide valuable insights.
+        """
+        logger.info("Generating smart fallback response with local intelligence")
         query_lower = query.lower()
-
+        
+        # Create smart agricultural prompt for analysis
+        agricultural_context = self._analyze_agricultural_query(query_lower)
+        
         # Build highly structured deterministic response mimicking the LLM format
         response_sections = []
         
-        # 1. Summary
-        response_sections.append("### Summary\nThank you for reaching out to Farm360. I have analyzed your request using our local intelligence models.")
+        # 1. Summary - Context-aware and engaging
+        summary = agricultural_context.get('summary', "Thank you for reaching out to Farm360. I have analyzed your request using our local intelligence models.")
+        response_sections.append(f"### Summary\n{summary}")
         
-        # 2. Analysis & Recommendations
+        # 2. Analysis & Recommendations - Intelligent routing
         if image_path:
-            tensor = self.media.process_image(image_path)
-            vision_result = self.api.predict_crop_disease_from_image(tensor)
-            eval_text = format_model_prediction("crop_disease_vision", vision_result)
-            response_sections.append(f"\n### Analysis\nWe processed your image upload. {eval_text}")
-            if "Healthy" in eval_text:
-                response_sections.append("\n### Recommendations\n- Continue your scheduled watering and fertilizer applications.\n- Perform weekly visual checks to guarantee ongoing health.")
-            else:
-                response_sections.append("\n### Recommendations\n- **Quarantine:** Immediately isolate the affected rows to prevent spread.\n- **Treatment:** Apply a broad-spectrum fungicide or specialized organic copper spray depending on the exact severity.\n- **Pruning:** Remove dead or decaying leaves carefully.")
-        elif "yield" in query_lower or "production" in query_lower:
-            context_weather = self.weather.get_forecast("Assam")
-            pred = self.api.predict_crop_yield("Rice", "Kharif", "Assam", 100.0, context_weather.get('rain_chance', 0.5) * 30, 200.0, 10.0)
-            explain_text = format_model_prediction("crop_yield", pred)
-            response_sections.append(f"\n### Analysis\n{explain_text}")
-            response_sections.append("\n### Recommendations\n- Optimize irrigation to compensate for fluctuating weather.\n- Perform a soil micro-nutrient test soon.")
-        elif "dairy" in query_lower or "milk" in query_lower:
-             pred = self.api.predict_dairy_production([2024, 2025, 2026])
-             explain_text = format_model_prediction("dairy_forecast", pred)
-             response_sections.append(f"\n### Analysis\n{explain_text}")
-             response_sections.append("\n### Recommendations\n- Maintain a high-protein feed diet consistently.\n- Schedule routine veterinary check-ins to prevent sudden yield drops.")
+            try:
+                tensor = self.media.process_image(image_path)
+                vision_result = self.api.predict_crop_disease_from_image(tensor)
+                eval_text = format_model_prediction("crop_disease_vision", vision_result)
+                
+                response_sections.append(f"\n### Analysis\n🔍 **Image Analysis Complete**: {eval_text}")
+                
+                if "Healthy" in eval_text or "healthy" in eval_text:
+                    response_sections.append("\n### Recommendations\n✅ **Great news!** Your crop appears healthy. Here's how to maintain it:\n- Continue your scheduled watering and fertilizer applications\n- Perform weekly visual checks for early pest detection\n- Monitor soil moisture levels regularly\n- Document growth stages for future reference")
+                else:
+                    response_sections.append("\n### Recommendations\n⚠️ **Action Required**: Detected potential issues. Take these steps:\n- **Quarantine**: Immediately isolate affected rows to prevent spread\n- **Treatment**: Apply broad-spectrum fungicide or specialized organic copper spray\n- **Pruning**: Remove dead or decaying leaves carefully\n- **Monitoring**: Check neighboring plants daily for symptom progression\n- **Documentation**: Photograph affected areas for tracking")
+            except Exception as e:
+                logger.error(f"Image processing error: {e}")
+                response_sections.append("\n### Analysis\n⚠️ Image analysis encountered an issue. Please try uploading a clearer photo or describe the symptoms in detail.")
+                response_sections.append("\n### Recommendations\n- Try retaking the image in better lighting\n- Focus on the affected plant parts\n- Include both close-up and wider context shots")
+        
+        elif "yield" in query_lower or "production" in query_lower or "crop" in query_lower:
+            try:
+                # Extract context or use defaults
+                location = agricultural_context.get('location', 'Assam')
+                crop = agricultural_context.get('crop', 'Rice')
+                season = agricultural_context.get('season', 'Kharif')
+                
+                context_weather = self.weather.get_forecast(location)
+                pred = self.api.predict_crop_yield(
+                    crop, season, location, 
+                    agricultural_context.get('area', 100.0), 
+                    context_weather.get('rain_chance', 0.5) * 30, 
+                    200.0, 10.0
+                )
+                explain_text = format_model_prediction("crop_yield", pred)
+                
+                response_sections.append(f"\n### Analysis\n📊 **Yield Forecast**: {explain_text}\n\n🌤️ **Current Weather Context**: {context_weather.get('description', 'Data unavailable')}")
+                response_sections.append("\n### Recommendations\n🎯 **Optimization Strategies**:\n- Optimize irrigation to compensate for fluctuating weather patterns\n- Perform soil micro-nutrient testing for precision fertilization\n- Consider crop rotation benefits for soil health\n- Monitor pest activity during critical growth stages\n- Plan harvest timing based on maturity indices")
+            except Exception as e:
+                logger.error(f"Yield prediction error: {e}")
+                response_sections.append("\n### Analysis\n📈 I specialize in crop yield forecasting using advanced regression models.")
+                response_sections.append("\n### Recommendations\n- Provide specific details: crop type, location, acreage\n- Share recent weather patterns or irrigation data\n- Mention fertilizer and pesticide usage history")
+        
+        elif "dairy" in query_lower or "milk" in query_lower or "livestock" in query_lower:
+            try:
+                pred = self.api.predict_dairy_production([2024, 2025, 2026])
+                explain_text = format_model_prediction("dairy_forecast", pred)
+                
+                response_sections.append(f"\n### Analysis\n🥛 **Production Forecast**: {explain_text}")
+                response_sections.append("\n### Recommendations\n🐄 **Herd Optimization**:\n- Maintain high-protein feed diet consistently\n- Schedule routine veterinary check-ins quarterly\n- Implement stress reduction measures during peak production\n- Monitor water quality and availability\n- Track breeding cycles for optimal yield planning")
+            except Exception as e:
+                logger.error(f"Dairy prediction error: {e}")
+                response_sections.append("\n### Analysis\n📊 I provide dairy production forecasts using time-series analysis.")
+                response_sections.append("\n### Recommendations\n- Share herd size and current production data\n- Provide feeding schedule details\n- Mention any health concerns or breeding information")
+        
+        elif "disease" in query_lower or "pest" in query_lower or "symptom" in query_lower:
+            response_sections.append("\n### Analysis\n🔬 **Disease Diagnostic System**: I can analyze animal diseases using symptomatic data.")
+            response_sections.append("\n### Recommendations\n📋 **Provide These Details**:\n- Animal type and age\n- Body temperature reading\n- Specific symptoms observed (minimum 3)\n- Duration of symptoms\n- Recent environmental changes")
+        
+        elif "weather" in query_lower or "rain" in query_lower or "forecast" in query_lower:
+            try:
+                location = agricultural_context.get('location', 'Assam')
+                context_weather = self.weather.get_forecast(location)
+                
+                response_sections.append(f"\n### Analysis\n🌤️ **Weather Forecast for {location}**:\n{context_weather}")
+                response_sections.append("\n### Recommendations\n🌾 **Agricultural Actions**:\n- Plan irrigation based on predicted rainfall\n- Protect crops if heavy rain or storms forecasted\n- Optimize spraying schedules around wind conditions\n- Prepare drainage systems if excessive rain expected")
+            except Exception as e:
+                logger.error(f"Weather fetch error: {e}")
+                response_sections.append("\n### Analysis\n🌤️ Weather data integration available for agricultural planning.")
+                response_sections.append("\n### Recommendations\n- Specify your location for localized forecasts\n- Mention crop sensitivity to weather conditions")
+        
         else:
-             response_sections.append("\n### Analysis\nI am operating in deterministic mode and could not precisely match a specific model to your text. I specialize in crop yields, dairy forecasts, and computer vision disease detection.")
-             response_sections.append("\n### Recommendations\n- Please try uploading an image of a crop.\n- Ask me specifically about \"yield forecasting\" or \"dairy production\".")
-
-        # 3. Next Steps
-        response_sections.append("\n### Next Steps\nDo you have any specific acreage or localized weather patterns you would like me to factor into the next calculation? What specific region are you farming in right now?")
+            # General agricultural consultation
+            response_sections.append("\n### Analysis\n🌱 **Farm360 Agricultural Intelligence**: I specialize in providing data-driven insights for modern farming operations.")
+            response_sections.append("\n### Recommendations\n💡 **How I Can Help**:\n- **Crop Yield Forecasting**: Predict production based on multiple factors\n- **Disease Detection**: Analyze crop images or animal symptoms\n- **Dairy Production**: Forecast milk production trends\n- **Weather Integration**: Location-specific agricultural advice\n- **Livestock Health**: Disease prediction and prevention")
+        
+        # 3. Next Steps - Intelligent follow-up
+        follow_up_questions = agricultural_context.get('follow_up', [
+            "Do you have specific acreage or localized weather patterns to factor in?",
+            "What specific region are you currently farming in?",
+            "Would you like to share more details about your current crop or livestock?"
+        ])
+        
+        next_steps = "\n### Next Steps\n❓ " + " ".join(follow_up_questions)
+        response_sections.append(next_steps)
 
         response_text = "\n".join(response_sections)
         self.memory.add_message(self.session_id, "user", query)
         self.memory.add_message(self.session_id, "assistant", response_text)
         return response_text
+    
+    def _analyze_agricultural_query(self, query_lower: str) -> dict:
+        """
+        Analyze agricultural query to extract context and intent.
+        Returns structured context for response generation.
+        """
+        context = {
+            'summary': "Thank you for reaching out to Farm360. Based on your query, I'll provide insights using our local ML models.",
+            'location': 'Assam',
+            'crop': 'Rice',
+            'season': 'Kharif',
+            'area': 100.0,
+            'follow_up': []
+        }
+        
+        # Extract location mentions
+        locations = ['assam', 'punjab', 'haryana', 'maharashtra', 'karnataka', 'tamil nadu', 
+                    'west bengal', 'gujarat', 'rajasthan', 'madhya pradesh', 'uttar pradesh']
+        for loc in locations:
+            if loc in query_lower:
+                context['location'] = loc.title()
+                context['follow_up'].append(f"Are you farming in the {loc.title()} region specifically?")
+                break
+        
+        # Extract crop mentions
+        crops = ['rice', 'wheat', 'cotton', 'sugarcane', 'maize', 'pulses', 'soybean', 
+                'groundnut', 'rapeseed', 'mustard']
+        for crop in crops:
+            if crop in query_lower:
+                context['crop'] = crop.title()
+                context['follow_up'].append(f"What variety of {crop} are you cultivating?")
+                break
+        
+        # Extract season mentions
+        seasons = ['kharif', 'rabi', 'zaid', 'summer', 'winter', 'monsoon']
+        for season in seasons:
+            if season in query_lower:
+                context['season'] = season.title()
+                break
+        
+        # Dynamic follow-up questions based on query type
+        if not context['follow_up']:
+            context['follow_up'] = [
+                "Could you share your specific location for more tailored advice?",
+                "What crop varieties are you currently working with?",
+                "Do you have historical yield data we could leverage?"
+            ]
+        
+        # Customize summary based on query intent
+        if 'yield' in query_lower:
+            context['summary'] = f"🌾 **Crop Yield Analysis**: I'll help you optimize {context['crop']} production using predictive modeling."
+        elif 'disease' in query_lower or 'pest' in query_lower:
+            context['summary'] = "🔬 **Diagnostic Analysis**: Let's identify and address your crop or livestock health concerns."
+        elif 'dairy' in query_lower or 'milk' in query_lower:
+            context['summary'] = "🥛 **Dairy Intelligence**: I'll provide production forecasts and optimization strategies."
+        
+        return context
+
+    def process_query_deterministic(self, query, image_path=None):
+        logger.info(f"Processing query deterministically: {query[:50]}")
+        
+        # Use the enhanced smart fallback response generator
+        return self._generate_smart_fallback_response(query, image_path)
 
     def chat(self, query, image_path=None):
         if self.has_llm:
