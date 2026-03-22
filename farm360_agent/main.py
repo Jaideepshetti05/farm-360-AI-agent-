@@ -75,7 +75,7 @@ class Farm360Agent:
             res = self.weather.get_forecast(location)
             return str(res)
 
-        # Enhanced agricultural AI expert prompt
+        # Enhanced agricultural AI expert prompt - DIRECT ADVICE FOCUSED
         system_instruction = f"""
 You are Farm360, a premium, knowledgeable, and empathetic agricultural expert and advisor.
 Your goal is to help real farmers make critical, real-world decisions based on Farm360's predictive models.
@@ -85,12 +85,15 @@ User Profile Context: {profile}
 CRITICAL RESPONSE INSTRUCTIONS:
 1. Tone & Voice: Be highly conversational, extremely clear, and professional. Avoid speaking like a raw robot or AI. Never repeat yourself. Never output raw data structures like JSON or confusing index numbers.
 2. Structure: Break your responses into these exact markdown headings for readability:
-   - ### Summary: Understand the user's intent and provide a brief overview.
-   - ### Analysis: Provide the evaluation from the ML tools in natural language.
-   - ### Recommendations: Actionable, step-by-step suggestions directly aimed at solving the issue.
-   - ### Next Steps: Ask an intelligent follow-up question (e.g., location, crop type, acreage, or requesting additional photos) to keep the interaction highly engaging.
+   - ### Summary: Provide a brief, direct overview (1-2 lines max).
+   - ### Analysis: Explain what the user likely means and evaluate from ML tools in natural language.
+   - ### Recommendations: Specific, actionable, step-by-step suggestions to solve the issue.
+   - ### Crop Suggestions: If relevant, suggest specific crops with reasoning.
+   - ### Next Steps: Concrete actions the user should take next (NOT questions).
 3. Quality: Eliminate duplicate words. Ensure the markdown UI renders beautifully.
 4. Expertise: Act as an experienced agricultural consultant with deep knowledge of Indian farming practices, crop cycles, weather patterns, and livestock management.
+5. IMPORTANT: Do NOT ask clarification questions like "Are you looking to...", "Would you like...", "What do you want?". Instead, provide complete, practical advice immediately.
+6. Farmer-First: Assume the user is a farmer who needs practical help, not a developer. Keep it simple, specific, and actionable.
 """
         
         if image_path:
@@ -180,6 +183,9 @@ CRITICAL RESPONSE INSTRUCTIONS:
                 
                 response_sections.append(f"\n### Analysis\n📊 **Yield Forecast**: {explain_text}\n\n🌤️ **Current Weather Context**: {context_weather.get('description', 'Data unavailable')}")
                 response_sections.append("\n### Recommendations\n🎯 **Optimization Strategies**:\n- Optimize irrigation to compensate for fluctuating weather patterns\n- Perform soil micro-nutrient testing for precision fertilization\n- Consider crop rotation benefits for soil health\n- Monitor pest activity during critical growth stages\n- Plan harvest timing based on maturity indices")
+                
+                # Add Crop Suggestions
+                response_sections.append(self._generate_crop_suggestions(crop, season, location))
             except Exception as e:
                 logger.error(f"Yield prediction error: {e}")
                 response_sections.append("\n### Analysis\n📈 I specialize in crop yield forecasting using advanced regression models.")
@@ -217,21 +223,140 @@ CRITICAL RESPONSE INSTRUCTIONS:
             # General agricultural consultation
             response_sections.append("\n### Analysis\n🌱 **Farm360 Agricultural Intelligence**: I specialize in providing data-driven insights for modern farming operations.")
             response_sections.append("\n### Recommendations\n💡 **How I Can Help**:\n- **Crop Yield Forecasting**: Predict production based on multiple factors\n- **Disease Detection**: Analyze crop images or animal symptoms\n- **Dairy Production**: Forecast milk production trends\n- **Weather Integration**: Location-specific agricultural advice\n- **Livestock Health**: Disease prediction and prevention")
+            
+            # Add general crop suggestions
+            response_sections.append(self._generate_general_crop_suggestions())
         
-        # 3. Next Steps - Intelligent follow-up
-        follow_up_questions = agricultural_context.get('follow_up', [
-            "Do you have specific acreage or localized weather patterns to factor in?",
-            "What specific region are you currently farming in?",
-            "Would you like to share more details about your current crop or livestock?"
-        ])
-        
-        next_steps = "\n### Next Steps\n❓ " + " ".join(follow_up_questions)
-        response_sections.append(next_steps)
+        # 3. Next Steps - CONCRETE ACTIONS (not questions)
+        next_steps_section = self._generate_actionable_next_steps(agricultural_context, query_lower)
+        response_sections.append(next_steps_section)
 
         response_text = "\n".join(response_sections)
         self.memory.add_message(self.session_id, "user", query)
         self.memory.add_message(self.session_id, "assistant", response_text)
         return response_text
+    
+    def _generate_actionable_next_steps(self, context: dict, query_lower: str) -> str:
+        """
+        Generate concrete, actionable next steps instead of questions.
+        Tells user WHAT TO DO, not WHAT TO ANSWER.
+        """
+        actions = []
+        
+        # Based on detected intent, provide specific actions
+        if 'yield' in query_lower or 'production' in query_lower:
+            actions = [
+                "Measure your exact plot area in acres or hectares",
+                "Record recent rainfall amounts using a rain gauge",
+                "Test soil NPK levels at nearest agricultural center",
+                "Document fertilizer application dates and quantities",
+                "Take dated photos of crop growth stages weekly"
+            ]
+        elif 'dairy' in query_lower or 'milk' in query_lower:
+            actions = [
+                "Set up daily milk yield tracking spreadsheet",
+                "Schedule veterinary health check this month",
+                "Review and optimize cattle feed protein content",
+                "Install water troughs for adequate hydration",
+                "Maintain breeding cycle records for planning"
+            ]
+        elif 'disease' in query_lower or 'pest' in query_lower or 'symptom' in query_lower:
+            actions = [
+                "Isolate affected plants/animals immediately",
+                "Photograph symptoms in good lighting today",
+                "Collect leaf/tissue samples for lab testing",
+                "Apply recommended fungicide/pesticide within 24 hours",
+                "Monitor neighboring crops daily for spread signs"
+            ]
+        elif 'weather' in query_lower or 'rain' in query_lower:
+            actions = [
+                "Check IMD weather forecast for your district daily",
+                "Prepare drainage channels before heavy rain",
+                "Cover sensitive crops if storm predicted",
+                "Adjust irrigation schedule based on rainfall",
+                "Store fertilizers in dry location to prevent damage"
+            ]
+        else:
+            # General farming guidance
+            actions = [
+                "Identify your primary farming objective (income vs subsistence)",
+                "Assess available resources: land area, water access, labor",
+                "Research high-value crops suitable for your climate zone",
+                "Connect with local Krishi Vigyan Kendra for expert advice",
+                "Start small-scale trials before full implementation"
+            ]
+        
+        # Format as actionable statements
+        action_text = "\n### Next Steps\n\nTake these practical actions:\n"
+        for i, action in enumerate(actions[:5], 1):  # Limit to top 5 actions
+            action_text += f"{i}. {action}\n"
+        
+        return action_text
+    
+    def _generate_crop_suggestions(self, current_crop: str, season: str, location: str) -> str:
+        """
+        Generate specific crop suggestions based on context.
+        """
+        # Crop rotation recommendations
+        rotation_map = {
+            'Rice': ['Wheat', 'Mustard', 'Vegetables'],
+            'Wheat': ['Rice', 'Soybean', 'Groundnut'],
+            'Cotton': ['Wheat', 'Chickpea', 'Tobacco'],
+            'Maize': ['Potato', 'Wheat', 'Moong'],
+            'Sugarcane': ['Wheat', 'Rice', 'Vegetables']
+        }
+        
+        # Seasonal alternatives
+        seasonal_crops = {
+            'Kharif': ['Rice', 'Maize', 'Cotton', 'Soybean', 'Groundnut', 'Pulses'],
+            'Rabi': ['Wheat', 'Mustard', 'Chickpea', 'Barley', 'Peas'],
+            'Zaid': ['Vegetables', 'Fodder crops', 'Moong', 'Watermelon']
+        }
+        
+        suggestion_text = "\n### Crop Suggestions\n\n"
+        
+        # Rotation suggestion
+        if current_crop in rotation_map:
+            rotations = rotation_map[current_crop]
+            suggestion_text += f"**After {current_crop}, consider rotating with:**\n"
+            for i, rot_crop in enumerate(rotations[:3], 1):
+                suggestion_text += f"{i}. **{rot_crop}** - improves soil health and breaks pest cycles\n"
+        
+        # Seasonal alternatives
+        if season in seasonal_crops:
+            suggestion_text += f"\n**Other suitable {season} crops for your region:**\n"
+            alternatives = [c for c in seasonal_crops[season] if c.lower() != current_crop.lower()][:3]
+            for alt in alternatives:
+                suggestion_text += f"- {alt}\n"
+        
+        return suggestion_text
+    
+    def _generate_general_crop_suggestions(self) -> str:
+        """
+        Provide general high-value crop recommendations for new farmers.
+        """
+        suggestion_text = "\n### Crop Suggestions\n\n"
+        suggestion_text += "**High-value crops to consider based on Indian farming conditions:**\n\n"
+        
+        # Categorized by investment level
+        suggestion_text += "**Low Investment, Quick Returns:**\n"
+        suggestion_text += "- **Vegetables** (Tomato, Brinjal, Okra): 60-90 days harvest\n"
+        suggestion_text += "- **Leafy greens** (Spinach, Coriander): 30-45 days harvest\n"
+        suggestion_text += "- **Radish/Carrot**: 45-60 days harvest\n\n"
+        
+        suggestion_text += "**Medium Investment, Stable Income:**\n"
+        suggestion_text += "- **Wheat/Rice**: Staple crops with guaranteed MSP\n"
+        suggestion_text += "- **Mustard**: High oilseed demand, 90-120 days\n"
+        suggestion_text += "- **Pulses** (Chickpea, Moong): Fix nitrogen, improve soil\n\n"
+        
+        suggestion_text += "**Higher Investment, Premium Returns:**\n"
+        suggestion_text += "- **Cotton**: Cash crop, 150-180 days\n"
+        suggestion_text += "- **Sugarcane**: Annual crop, buy-back agreements\n"
+        suggestion_text += "- **Maize**: Growing industrial demand\n\n"
+        
+        suggestion_text += "**Recommendation:** Start with 1-2 crops you're familiar with, then diversify gradually."
+        
+        return suggestion_text
     
     def _analyze_agricultural_query(self, query_lower: str) -> dict:
         """
