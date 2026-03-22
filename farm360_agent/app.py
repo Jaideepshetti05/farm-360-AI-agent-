@@ -10,8 +10,8 @@ import os
 import shutil
 from loguru import logger
 
-from main import Farm360Agent
-from config import settings
+from farm360_agent.main import Farm360Agent
+from farm360_agent.config import settings
 
 # Global Agent State
 agent: Optional[Farm360Agent] = None

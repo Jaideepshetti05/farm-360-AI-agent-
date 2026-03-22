@@ -5,7 +5,7 @@ from starlette.concurrency import run_in_threadpool
 import uvicorn
 import os
 import shutil
-from main import Farm360Agent
+from farm360_agent.main import Farm360Agent
 
 app = FastAPI(title="Farm360 AI Agent API", version="1.0")
 

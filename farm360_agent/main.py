@@ -13,7 +13,7 @@ from external_apis.weather import WeatherClient
 from memory.session import MemoryManager
 from feedback.feedback_logger import FeedbackSystem
 from agent_core.explainability import format_model_prediction
-from config import settings
+from farm360_agent.config import settings
 
 class Farm360Agent:
     def __init__(self, use_mock_llm=False):

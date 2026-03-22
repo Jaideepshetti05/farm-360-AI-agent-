@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
-from config import settings
+from farm360_agent.config import settings
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
