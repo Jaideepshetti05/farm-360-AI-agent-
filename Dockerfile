@@ -8,14 +8,14 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY farm360_agent/requirements.txt ./requirements.txt
+COPY requirements.txt ./requirements.txt
 
 RUN pip install --upgrade pip
 
 # Install dependencies with explicit error handling
 RUN pip install --no-cache-dir -r requirements.txt || (echo "ERROR: Failed to install dependencies" && exit 1)
 
-COPY farm360_agent/ .
+COPY . .
 
 # Verify critical imports work before runtime
 RUN python -c "import google.generativeai; print('✓ Google GenAI imported successfully')"

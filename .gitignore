@@ -85,6 +85,7 @@ health_module/animal_disease_dataset.csv
 reports/
 visualizations/
 *.txt
+!requirements.txt
 !farm360_agent/README.md
 !farm360_nextjs/README.md
 !README.md
