@@ -71,13 +71,14 @@ def health_check():
 
 @app.post("/chat")
 async def chat_endpoint(query: str = Form(...), api_key: str = Depends(verify_api_key)):
-    """Simple text-only chat endpoint."""
+    """Expert chat endpoint returning structured JSON."""
     if not query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
     try:
         logger.info(f"Incoming Chat Request: {query[:50]}")
         response = await run_in_threadpool(agent.chat, query)
-        return {"query": query, "response": response}
+        # Return the structured response directly as requested
+        return response
     except Exception as e:
         logger.exception("Text Chat Failure")
         raise HTTPException(status_code=500, detail="Inference Error")
@@ -90,18 +91,24 @@ async def chat_stream_endpoint(
 ):
     from fastapi.responses import StreamingResponse
     import asyncio
+    import json
     
     async def event_generator():
         try:
             logger.info(f"Incoming Streaming Request: {query[:50]}")
-            response_text = await run_in_threadpool(agent.chat, query)
-            # Stream line-by-line to preserve markdown structure (headers, bullets)
-            lines = response_text.split("\n")
+            structured_response = await run_in_threadpool(agent.chat, query)
+            
+            # For streaming a structured object, we'll send it as a single chunk 
+            # or we could stream based on keys. Here we send the JSON string.
+            full_json = json.dumps(structured_response, indent=2)
+            lines = full_json.split("\n")
+            
             for i, line in enumerate(lines):
                 chunk = line + ("\n" if i < len(lines) - 1 else "")
                 safe_chunk = chunk.replace("\n", "\\n")
                 yield f"data: {safe_chunk}\n\n"
-                await asyncio.sleep(0.005)
+                await asyncio.sleep(0.01)
+            
             yield "data: [DONE]\n\n"
         except Exception as e:
             logger.error(f"Streaming Error: {str(e)}")
@@ -111,21 +118,23 @@ async def chat_stream_endpoint(
 
 @app.post("/analyze_image")
 async def analyze_image_endpoint(
-    query: str = Form("Analyze this image."), 
+    query: str = Form("Analyze this crop image and diagnose any visible diseases, deficiencies, or health issues."),
     image: UploadFile = File(...),
     api_key: str = Depends(verify_api_key)
 ):
-    """Multimodal handler for images."""
+    """Multimodal handler for crop images. Returns structured expert analysis."""
     if not image.filename:
         raise HTTPException(status_code=400, detail="Empty payload passed")
-        
+
     temp_path = os.path.join(TEMP_DIR, image.filename)
     try:
         logger.info(f"Incoming Multimodal Request: {query[:50]}")
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
-        response = await run_in_threadpool(agent.chat, query, temp_path)
-        return {"query": query, "response": response}
+        # agent.chat now returns a dict (structured JSON)
+        structured_response = await run_in_threadpool(agent.chat, query, temp_path)
+        # Return the structured response directly - same shape as /chat
+        return structured_response
     except Exception as e:
         logger.exception("Vision Pipeline Faults")
         raise HTTPException(status_code=500, detail="Failure analyzing image structure")
