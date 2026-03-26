@@ -178,10 +178,10 @@ Your response MUST be ONLY a valid JSON object matching exactly this schema:
         
         res = {
             "summary": context.get('summary', "Agricultural analysis based on local diagnostic models."),
-            "analysis": f"Currently operating in high-performance deterministic mode. Analysis indicates focus on {context.get('crop', 'general agriculture')} in {context.get('location', 'India')}.",
+            "_reasoning_step": f"Currently operating in high-performance deterministic mode. Analysis indicates focus on {context.get('crop', 'general agriculture')} in {context.get('location', 'India')}.",
             "recommendations": [],
-            "crop_suggestions": [],
-            "next_steps": []
+            "insights": [],
+            "action_steps": []
         }
 
         if image_path:
@@ -196,16 +196,16 @@ Your response MUST be ONLY a valid JSON object matching exactly this schema:
                 else:
                     res["recommendations"] = ["Isolate affected area", "Apply targeted fungicide", "Prune damaged tissue"]
             except:
-                res["analysis"] += " Image processing failed."
+                res["_reasoning_step"] += " Image processing failed."
 
         elif "yield" in query_lower:
             res["recommendations"] = ["Optimize irrigation", "Soil nutrient test", "Precision fertilization"]
-            res["crop_suggestions"] = ["High-yield Rice variety IR64", "Basmati 370"]
+            res["insights"] = ["High-yield Rice variety IR64", "Basmati 370"]
         else:
             res["recommendations"] = ["Regular crop monitoring", "Weather-based planning", "Soil health assessment"]
-            res["crop_suggestions"] = ["Mustard", "Wheat"]
+            res["insights"] = ["Mustard", "Wheat"]
 
-        res["next_steps"] = [
+        res["action_steps"] = [
             "Conduct soil NPK testing",
             "Review local weather forecast",
             "Document any new symptoms"

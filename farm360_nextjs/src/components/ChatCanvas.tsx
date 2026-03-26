@@ -3,11 +3,12 @@ import React from "react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface StructuredResponse {
+  _reasoning_step?: string;
   summary?: string;
-  analysis?: string;
+  insights?: string[];
   recommendations?: string[];
-  crop_suggestions?: string[];
-  next_steps?: string[];
+  action_steps?: string[];
+  missing_data_warning?: string | null;
 }
 
 // ─── Reusable Section Card ────────────────────────────────────────────────────
@@ -76,14 +77,25 @@ function StructuredCard({ data }: { data: StructuredResponse }) {
         </div>
       )}
 
-      {/* Analysis */}
-      {data.analysis && (
+      {/* Analysis \/ Reasoning step */}
+      {data._reasoning_step && (
         <SectionCard
           icon="🔍"
           title="Analysis"
           accent="border-blue-800/50 bg-blue-950/25"
         >
-          <p>{data.analysis}</p>
+          <p>{data._reasoning_step}</p>
+        </SectionCard>
+      )}
+
+      {/* Insights */}
+      {data.insights && data.insights.length > 0 && (
+        <SectionCard
+          icon="💡"
+          title="Key Insights"
+          accent="border-yellow-800/40 bg-yellow-950/15"
+        >
+          <BulletList items={data.insights} />
         </SectionCard>
       )}
 
@@ -98,35 +110,24 @@ function StructuredCard({ data }: { data: StructuredResponse }) {
         </SectionCard>
       )}
 
-      {/* Crop Suggestions */}
-      {data.crop_suggestions && data.crop_suggestions.length > 0 && (
+      {/* Action Steps */}
+      {data.action_steps && data.action_steps.length > 0 && (
         <SectionCard
-          icon="🌱"
-          title="Crop Suggestions"
-          accent="border-yellow-800/40 bg-yellow-950/15"
+          icon="📌"
+          title="Action Steps"
+          accent="border-purple-800/50 bg-purple-950/20"
         >
-          <div className="flex flex-wrap gap-2 pt-0.5">
-            {data.crop_suggestions.map((crop, i) => (
-              <span
-                key={i}
-                className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-900/50 border border-yellow-700/60 text-yellow-200"
-              >
-                {crop}
-              </span>
-            ))}
-          </div>
+          <NumberedList items={data.action_steps} />
         </SectionCard>
       )}
 
-      {/* Next Steps */}
-      {data.next_steps && data.next_steps.length > 0 && (
-        <SectionCard
-          icon="📌"
-          title="Next Steps"
-          accent="border-purple-800/50 bg-purple-950/20"
-        >
-          <NumberedList items={data.next_steps} />
-        </SectionCard>
+      {/* Missing Data Warning */}
+      {data.missing_data_warning && (
+        <div className="bg-red-900/30 border border-red-700/50 rounded-xl px-4 py-3">
+          <p className="text-red-300 font-semibold text-sm">
+            ⚠️ {data.missing_data_warning}
+          </p>
+        </div>
       )}
     </div>
   );
@@ -163,7 +164,7 @@ function AssistantMessage({ content, streaming }: { content: string; streaming?:
       parsed &&
       typeof parsed === "object" &&
       !Array.isArray(parsed) &&
-      (parsed.summary || parsed.analysis || parsed.recommendations)
+      (parsed.summary || parsed._reasoning_step || parsed.recommendations || parsed.insights)
     ) {
       structured = parsed as StructuredResponse;
     }
