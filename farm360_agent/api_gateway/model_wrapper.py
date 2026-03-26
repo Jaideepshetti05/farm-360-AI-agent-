@@ -143,3 +143,34 @@ class Farm360API:
         except Exception as e:
             logger.error(f"Animal Inference Failed: {str(e)}")
             raise e
+
+import json
+import re
+
+class LLMValidator:
+    """Enforces structured JSON format from the LLM and validates schema keys."""
+    REQUIRED_KEYS = {"summary", "insights", "recommendations", "action_steps", "missing_data_warning"}
+    
+    @staticmethod
+    def parse_and_validate(raw_text: str) -> dict:
+        # Strip markdown code blocks if present
+        text = raw_text.strip()
+        if text.startswith("```"):
+            match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+            if match:
+                text = match.group(1).strip()
+                
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format from LLM: {str(e)}\nRaw Output: {text[:100]}...")
+            
+        if not isinstance(data, dict):
+            raise ValueError("LLM Output must be a JSON object (dictionary)")
+            
+        missing_keys = LLMValidator.REQUIRED_KEYS - set(data.keys())
+        if missing_keys:
+            raise ValueError(f"Missing required keys in LLM JSON output: {missing_keys}")
+            
+        # Optional: ensure specific types if needed, but keys are enough for now
+        return data

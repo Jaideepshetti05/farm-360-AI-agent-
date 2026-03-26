@@ -6,7 +6,7 @@ import google.generativeai as genai
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
-from api_gateway.model_wrapper import Farm360API
+from api_gateway.model_wrapper import Farm360API, LLMValidator
 from media_pipeline.image_processor import MediaPipeline
 from decision_engine.logic import DecisionEngine
 from external_apis.weather import WeatherClient
@@ -14,6 +14,7 @@ from memory.session import MemoryManager
 from feedback.feedback_logger import FeedbackSystem
 from agent_core.explainability import format_model_prediction
 from farm360_agent.config import settings
+import json
 
 class Farm360Agent:
     def __init__(self, use_mock_llm=False):
@@ -56,6 +57,7 @@ class Farm360Agent:
 
     def process_query_llm(self, query, image_path=None):
         logger.info(f"Processing query via LLM: {query[:50]}")
+        original_query = query
         profile = self.memory.get_user_profile(self.user_id)
         
         # Tool definitions for Gemini
@@ -75,31 +77,48 @@ class Farm360Agent:
             res = self.weather.get_forecast(location)
             return str(res)
 
+        def get_farm_data() -> str:
+            return json.dumps({
+                "farm_id": "F-001",
+                "location": profile.get("location", "Unknown"),
+                "primary_crop": profile.get("primary_crop", "Unknown"),
+                "farm_size": profile.get("farm_size", "Unknown"),
+                "active_animals": [
+                    {"type": "Cow", "age": 4.5, "health_status": "Good"}
+                ]
+            })
+
         # 🎯 STRONG EXPERT PROMPT - PRODUCTION READY
         system_instruction = f"""
-You are the Farm360 AI Agricultural Expert, a senior agricultural consultant and data scientist. 
-Your objective is to provide professional, actionable, and data-driven advice to farmers in India.
+You are the Farm360 AI Agricultural ERP Assistant and Senior Agronomist. 
+You provide enterprise-grade data analysis, precise agricultural advice, and diagnostic intelligence for modern farming operations.
 
-USER CONTEXT:
-- Role: Farmer
-- Domain: Indian Agriculture (Kharif, Rabi, Zaid cycles)
-- Current Profile: {profile}
+## CURRENT CONTEXT
+- Farmer Profile: {json.dumps(profile)}
+- Note: Maintain conversational continuity with the recent history.
 
-CORE PRINCIPLES:
-1. NO CHATBOT BEHAVIOR: Do not say "Hello", "How can I help", "Are you looking for", or "Would you like". 
-2. DIRECTNESS: Provide immediate, direct answers. If the user asks about a disease, diagnose it. If they ask about crops, suggest them.
-3. STRUCTURED LOGIC: Use the Farm360 tools (yield prediction, disease diagnosis, weather) to back your claims.
-4. EXPERT TONE: Sound like a professional agronomist. Use practical agricultural terminology (e.g., NPK levels, irrigation cycles, pest thresholds).
+## MANDATORY TOOL ENFORCEMENT & RULES
+1. If the user asks about CROP YIELD or PRODUCTION, you MUST CALL the predict_crop_yield tool.
+2. If the user asks about ANIMAL HEALTH or DISEASE, you MUST CALL the predict_animal_disease tool.
+3. If the user asks about MILK or DAIRY, you MUST CALL the predict_dairy_production tool.
+4. If a tool expects specific required arguments not present in the query, DO NOT GUESS. Explicitly ask the user to provide the missing required parameters.
+5. NEVER hallucinate farm data. MUST CALL get_farm_data to understand the user's current farm context before advising.
+6. If a tool returns 'not available' or data is missing, output: "missing_data_warning": "Required data not available".
 
-REQUIRED OUTPUT FORMAT (JSON ONLY):
-You MUST return ONLY a valid JSON object with these fields:
-- "summary": A concise (1 sentence) professional overview of the solution.
-- "analysis": A deep-dive professional assessment (2-4 sentences) integrating tool outputs and agricultural science.
-- "recommendations": A list of 3-5 specific, technical actions for the farmer.
-- "crop_suggestions": A list of 2-3 specific crops (with varieties if possible) suitable for the context.
-- "next_steps": A list of 3 concrete, immediate actions to take on the farm.
+## REASONING & STRUCTURED JSON REQUIREMENT
+You operate in two steps:
+STEP 1: THINK (Analyze query and use tools)
+STEP 2: RESPOND (Output final JSON)
 
-DO NOT output any text before or after the JSON.
+Your response MUST be ONLY a valid JSON object matching exactly this schema:
+{{
+  "_reasoning_step": "Think step-by-step: what data do I need, which tools did I use, and what is the logical conclusion?",
+  "summary": "1-sentence executive summary.",
+  "insights": ["Insight 1", "Insight 2"],
+  "recommendations": ["Recommendation 1", "Recommendation 2"],
+  "action_steps": ["Action 1", "Action 2"],
+  "missing_data_warning": "Any required data you need, or null if none."
+}}
 """
         
         if image_path:
@@ -107,53 +126,50 @@ DO NOT output any text before or after the JSON.
             tensor = self.media.process_image(image_path)
             vision_result = self.api.predict_crop_disease_from_image(tensor)
             eval_text = format_model_prediction("crop_disease_vision", vision_result)
-            query += f"\n\n[System Note: VISUAL DATA DETECTED. Vision Model Diagnosis: {eval_text}. Integrate this into your structured analysis.]"
+            query += f"\n\n[System Note: VISUAL DATA DETECTED. Vision Model Diagnosis: {eval_text}. MUST BE Integrated into your structured JSON analysis.]"
         
         try:
             generation_config = {
                 "temperature": 0.2,
                 "top_p": 0.95,
-                "top_k": 40,
                 "max_output_tokens": 1024,
                 "response_mime_type": "application/json",
             }
 
             model = genai.GenerativeModel(
                 model_name='gemini-1.5-flash',
-                tools=[predict_crop_yield, predict_dairy_production, predict_animal_disease, get_weather_forecast],
+                tools=[predict_crop_yield, predict_dairy_production, predict_animal_disease, get_weather_forecast, get_farm_data],
                 system_instruction=system_instruction
             )
             
-            chat = model.start_chat(enable_automatic_function_calling=True)
-            response = chat.send_message(query, generation_config=generation_config)
+            # Retrieve formatted history
+            history_data = self.memory.get_chat_history(self.session_id)
+            formatted_history = []
+            for m in history_data:
+                # Map role to API expected 'user' or 'model'
+                role = "user" if m["role"] == "user" else "model"
+                formatted_history.append({"role": role, "parts": [m["content"]]})
+                
+            chat = model.start_chat(history=formatted_history, enable_automatic_function_calling=True)
             
-            raw_text = response.text.strip()
-            # Handle potential markdown code blocks if the model ignores response_mime_type
-            if raw_text.startswith("```"):
-                import re
-                match = re.search(r"```(?:json)?\s*(.*?)\s*```", raw_text, re.DOTALL)
-                if match:
-                    raw_text = match.group(1)
-
-            import json
-            try:
-                structured_data = json.loads(raw_text)
-                self.memory.add_message(self.session_id, "user", query)
-                self.memory.add_message(self.session_id, "assistant", raw_text)
-                return structured_data
-            except Exception:
-                logger.warning("LLM produced invalid JSON, returning raw text as summary.")
-                return {
-                    "summary": "Direct Agricultural Insight",
-                    "analysis": raw_text[:500],
-                    "recommendations": ["Review current crop status", "Consult local expert"],
-                    "crop_suggestions": ["Rice", "Mustard"],
-                    "next_steps": ["Check soil moisture", "Verify input details"]
-                }
+            max_retries = 2
+            for attempt in range(max_retries):
+                response = chat.send_message(query, generation_config=generation_config)
+                try:
+                    structured_data = LLMValidator.parse_and_validate(response.text)
+                    self.memory.add_message(self.session_id, "user", original_query)
+                    self.memory.add_message(self.session_id, "model", json.dumps(structured_data, indent=2))
+                    return structured_data
+                except ValueError as e:
+                    if attempt == max_retries - 1:
+                        logger.error(f"LLM Output Validation Failed after retries: {e}")
+                        raise
+                    logger.warning(f"LLM validation failed on attempt {attempt+1}: {e}. Retrying.")
+                    query = f"Your last response failed validation: {str(e)}. Please correct it and return ONLY the required JSON mapping."
 
         except Exception as e:
             logger.error(f"LLM Failure: {str(e)}")
-            return self.process_query_deterministic(query, image_path)
+            return self.process_query_deterministic(original_query, image_path)
 
     def _generate_smart_fallback_response(self, query, image_path=None):
         """Structured fallback logic when LLM is unavailable."""
