@@ -5,7 +5,7 @@ echo ========================================
 echo This will train your agriculture dataset using multiple approaches
 echo ========================================
 
-cd /d "C:\Users\Jaideep\OneDrive\Desktop\ml models"
+cd /d "%~dp0\.."
 
 echo Starting comprehensive agriculture dataset training...
 python dairy_module\agriculture_ml_pipeline.py

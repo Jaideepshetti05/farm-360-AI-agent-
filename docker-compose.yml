@@ -13,9 +13,9 @@ services:
       - FARM360_API_KEY=${FARM360_API_KEY:-secure-secret-key-1234}
     volumes:
       # Mount models folder dynamically avoiding large container images if preferred
-      - ./models:/app/models
-      - ./crop_regression/models:/app/crop_regression/models
-      - ./crop_vision/models:/app/crop_vision/models
+      - ./machine_learning/models:/app/models
+      - ./machine_learning/crop_regression/models:/app/crop_regression/models
+      - ./machine_learning/crop_vision/models:/app/crop_vision/models
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
@@ -29,7 +29,7 @@ services:
     container_name: farm360_nextjs_frontend
     working_dir: /app
     volumes:
-      - ./farm360_nextjs:/app
+      - ./frontend:/app
       - /app/node_modules
       - /app/.next
     ports:

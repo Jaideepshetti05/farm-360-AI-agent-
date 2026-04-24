@@ -24,4 +24,4 @@ RUN python -c "from loguru import logger; print('✓ Loguru imported successfull
 
 EXPOSE 8000
 
-CMD ["uvicorn", "farm360_agent.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]

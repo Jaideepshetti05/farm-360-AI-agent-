@@ -5,7 +5,7 @@ echo ========================================
 echo This will train your animal detection dataset using multiple approaches
 echo ========================================
 
-cd /d "C:\Users\Jaideep\OneDrive\Desktop\ml models"
+cd /d "%~dp0\.."
 
 echo Starting comprehensive animal detection training...
 python animal_module\train_all_animal_approaches.py

@@ -13,7 +13,7 @@ from external_apis.weather import WeatherClient
 from memory.session import MemoryManager
 from feedback.feedback_logger import FeedbackSystem
 from agent_core.explainability import format_model_prediction
-from farm360_agent.config import settings
+from backend.config import settings
 import json
 
 class Farm360Agent:

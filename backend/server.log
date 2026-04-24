@@ -1,0 +1,66 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\Jaideep\\Desktop\\ml models\\farm360_agent']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [161648] using StatReload
+INFO:     Started server process [204696]
+INFO:     Waiting for application startup.
+2026-03-21 21:19:14.591 | INFO     | app:lifespan:32 - FastAPI Booting - Starting ML Lifespan Hook...
+2026-03-21 21:19:14.592 | INFO     | main:__init__:21 - Initializing Farm360 Intelligence Modules...
+2026-03-21 21:19:14.592 | INFO     | api_gateway.model_wrapper:__init__:19 - Initializing ML Models...
+2026-03-21 21:19:14.592 | INFO     | api_gateway.model_wrapper:__init__:22 - Loading Crop Production Regression Model...
+2026-03-21 21:19:16.363 | INFO     | api_gateway.model_wrapper:__init__:31 - Loading Dairy Intelligence Model...
+2026-03-21 21:19:16.389 | INFO     | api_gateway.model_wrapper:__init__:41 - Loading Animal Disease Classification Model...
+2026-03-21 21:19:16.421 | INFO     | api_gateway.model_wrapper:__init__:60 - Loading Crop Disease Vision Model (ResNet18)...
+2026-03-21 21:19:16.646 | SUCCESS  | api_gateway.model_wrapper:__init__:71 - All ML Models Successfully Initialized in Farm360API!
+2026-03-21 21:19:16.662 | WARNING  | main:__init__:42 - No valid GOOGLE_API_KEY found in config. Using Deterministic Fallback.
+2026-03-21 21:19:16.663 | SUCCESS  | app:lifespan:39 - Farm360 Agent Application Complete! Serving Requests.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:65195 - "POST /chat_stream HTTP/1.1" 200 OK
+2026-03-21 21:20:18.553 | INFO     | app:event_generator:96 - Incoming Streaming Request: test
+2026-03-21 21:20:18.553 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: test
+INFO:     127.0.0.1:54407 - "POST /chat_stream HTTP/1.1" 200 OK
+2026-03-21 21:20:46.003 | INFO     | app:event_generator:96 - Incoming Streaming Request:  Predict yields, analyze crops, and forecast trend
+2026-03-21 21:20:46.003 | INFO     | main:process_query_deterministic:105 - Processing query deterministically:  Predict yields, analyze crops, and forecast trend
+2026-03-21 21:20:46.030 | ERROR    | api_gateway.model_wrapper:predict_crop_yield:83 - Crop Yield Inference Failed: columns are missing: {'Crop_Year'}
+2026-03-21 21:20:46.030 | ERROR    | app:event_generator:107 - Streaming Error: columns are missing: {'Crop_Year'}
+INFO:     127.0.0.1:60968 - "POST /chat_stream HTTP/1.1" 200 OK
+2026-03-21 21:20:55.282 | INFO     | app:event_generator:96 - Incoming Streaming Request: Predict yields,
+2026-03-21 21:20:55.283 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: Predict yields,
+2026-03-21 21:20:55.288 | ERROR    | api_gateway.model_wrapper:predict_crop_yield:83 - Crop Yield Inference Failed: columns are missing: {'Crop_Year'}
+2026-03-21 21:20:55.288 | ERROR    | app:event_generator:107 - Streaming Error: columns are missing: {'Crop_Year'}
+INFO:     127.0.0.1:53706 - "POST /chat_stream HTTP/1.1" 200 OK
+2026-03-21 21:21:12.539 | INFO     | app:event_generator:96 - Incoming Streaming Request: dairy forecast
+2026-03-21 21:21:12.540 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: dairy forecast
+INFO:     127.0.0.1:58420 - "POST /chat_stream HTTP/1.1" 200 OK
+2026-03-21 21:22:14.802 | INFO     | app:event_generator:96 - Incoming Streaming Request: crop yeald
+2026-03-21 21:22:14.802 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: crop yeald
+INFO:     127.0.0.1:50549 - "OPTIONS /analyze_image HTTP/1.1" 200 OK
+2026-03-21 21:22:36.040 | INFO     | app:analyze_image_endpoint:124 - Incoming Multimodal Request: desies name
+2026-03-21 21:22:36.041 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: desies name
+INFO:     127.0.0.1:50549 - "POST /analyze_image HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54218 - "POST /chat_stream HTTP/1.1" 200 OK
+2026-03-21 21:23:04.839 | INFO     | app:event_generator:96 - Incoming Streaming Request: dairy forecast
+2026-03-21 21:23:04.840 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: dairy forecast
+INFO:     127.0.0.1:52053 - "POST /chat_stream HTTP/1.1" 200 OK
+2026-03-21 21:23:08.491 | INFO     | app:event_generator:96 - Incoming Streaming Request: Predict yields,
+
+2026-03-21 21:23:08.491 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: Predict yields,
+
+2026-03-21 21:23:08.493 | ERROR    | api_gateway.model_wrapper:predict_crop_yield:83 - Crop Yield Inference Failed: columns are missing: {'Crop_Year'}
+2026-03-21 21:23:08.494 | ERROR    | app:event_generator:107 - Streaming Error: columns are missing: {'Crop_Year'}
+INFO:     127.0.0.1:52378 - "OPTIONS /analyze_image HTTP/1.1" 200 OK
+2026-03-21 21:24:42.057 | INFO     | app:analyze_image_endpoint:124 - Incoming Multimodal Request: Analyze this image.
+2026-03-21 21:24:42.058 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: Analyze this image.
+INFO:     127.0.0.1:52378 - "POST /analyze_image HTTP/1.1" 200 OK
+2026-03-21 21:26:30.821 | INFO     | app:analyze_image_endpoint:124 - Incoming Multimodal Request: Analyze this image.
+2026-03-21 21:26:30.822 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: Analyze this image.
+INFO:     127.0.0.1:58724 - "POST /analyze_image HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50123 - "OPTIONS /analyze_image HTTP/1.1" 200 OK
+2026-03-21 21:57:39.241 | INFO     | app:analyze_image_endpoint:124 - Incoming Multimodal Request: tell about thise
+2026-03-21 21:57:39.245 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: tell about thise
+INFO:     127.0.0.1:50123 - "POST /analyze_image HTTP/1.1" 200 OK
+2026-03-21 21:59:29.068 | INFO     | app:analyze_image_endpoint:124 - Incoming Multimodal Request: Analyze this image.
+2026-03-21 21:59:29.070 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: Analyze this image.
+INFO:     127.0.0.1:62682 - "POST /analyze_image HTTP/1.1" 200 OK
+2026-03-21 22:00:30.615 | INFO     | app:analyze_image_endpoint:124 - Incoming Multimodal Request: Analyze this image.
+2026-03-21 22:00:30.617 | INFO     | main:process_query_deterministic:105 - Processing query deterministically: Analyze this image.
+INFO:     127.0.0.1:63226 - "POST /analyze_image HTTP/1.1" 200 OK

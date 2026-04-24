@@ -7,7 +7,7 @@ import sys
 import os
 from pathlib import Path
 
-# Add farm360_agent to path
+# Add backend to path
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
 
@@ -57,7 +57,7 @@ def diagnose_api_key():
     # Check 3: Config loading
     print("\n3️⃣ Checking config.py loading...")
     try:
-        from farm360_agent.config import settings
+        from backend.config import settings
         
         if settings.google_api_key:
             print(f"   ✅ Loaded in settings: {settings.google_api_key[:10]}...{settings.google_api_key[-5:]}")
@@ -71,7 +71,7 @@ def diagnose_api_key():
     # Check 4: Agent initialization
     print("\n4️⃣ Testing Farm360Agent initialization...")
     try:
-        from farm360_agent.main import Farm360Agent
+        from backend.main import Farm360Agent
         
         print("   Importing agent... ✅")
         
@@ -124,14 +124,14 @@ def diagnose_api_key():
         issues.append("❌ .env file missing")
     
     try:
-        from farm360_agent.config import settings
+        from backend.config import settings
         if not settings.google_api_key or settings.google_api_key == "your_actual_google_gemini_api_key_here":
             issues.append("❌ GOOGLE_API_KEY not loaded in settings or still placeholder")
     except:
         issues.append("❌ Cannot load settings object")
     
     try:
-        from farm360_agent.main import Farm360Agent
+        from backend.main import Farm360Agent
         agent = Farm360Agent(use_mock_llm=False)
         if not agent.has_llm:
             issues.append("❌ Agent initialized without LLM capability")

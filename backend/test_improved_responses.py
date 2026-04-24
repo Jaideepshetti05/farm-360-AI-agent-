@@ -7,7 +7,7 @@ import sys
 import os
 from pathlib import Path
 
-# Add farm360_agent to path
+# Add backend to path
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
 
