@@ -1,146 +1,325 @@
-from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, status, Form
+from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, status, Form, Request
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from typing import Optional
 from contextlib import asynccontextmanager
 import uvicorn
+import asyncio
+import threading
+import queue as q_module
 import os
+import uuid
+import secrets
 import shutil
+import json
 from loguru import logger
 
 from backend.main import Farm360Agent
 from backend.config import settings
 
-# Global Agent State
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+from collections import defaultdict
+import time
+
+class RateLimiter:
+    """Simple in-memory sliding-window rate limiter."""
+    def __init__(self, max_requests: int = 20, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._clients: dict[str, list[float]] = defaultdict(list)
+        self._lock = threading.Lock()
+
+    def is_allowed(self, client_id: str) -> bool:
+        now = time.time()
+        cutoff = now - self.window_seconds
+        with self._lock:
+            timestamps = self._clients[client_id]
+            # Prune old entries
+            self._clients[client_id] = [t for t in timestamps if t > cutoff]
+            if len(self._clients[client_id]) >= self.max_requests:
+                return False
+            self._clients[client_id].append(now)
+            return True
+
+rate_limiter = RateLimiter(max_requests=30, window_seconds=60)
+
+
+# ── Global state ─────────────────────────────────────────────────────────────
 agent: Optional[Farm360Agent] = None
 TEMP_DIR = os.path.join(os.path.dirname(__file__), "temp_uploads")
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-# Pydantic Schemas for validation Input
-class ChatRequest(BaseModel):
-    query: str = Field(..., min_length=1, description="User's query for the assistant")
-    session_id: str = Field("default_session", description="Unique session string")
 
-class ChatResponse(BaseModel):
-    query: str
-    response: str
-
+# ── Startup / shutdown ────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup Engine
-    logger.info("FastAPI Booting - Starting ML Lifespan Hook...")
+    logger.info("FastAPI starting — initialising Farm360 Agent…")
     os.makedirs(TEMP_DIR, exist_ok=True)
     global agent
     try:
-        # Fails immediately here if models or env are faulty
-        agent = Farm360Agent(use_mock_llm=False)
-        agent.memory.set_user_profile(agent.user_id, {"location": "Assam", "farm_size": 100, "primary_crop": "Rice"})
-        logger.success("Farm360 Agent Application Complete! Serving Requests.")
+        # Pass model_base_path from settings
+        agent = Farm360Agent(
+            use_mock_llm=False,
+            model_base_path=settings.model_base_path,
+        )
+        agent.memory.set_user_profile(agent.user_id, {
+            "location": "Assam, India",
+            "farm_size": 100,
+            "primary_crop": "Rice",
+            "secondary_crops": ["Mustard", "Jute"],
+            "livestock": "Mixed dairy herd (12 cattle)",
+        })
+        logger.success("Farm360 Agent ready — serving requests.")
     except Exception as e:
-        logger.error(f"Failed to boot Farm360 Agent completely: {str(e)}")
+        logger.error(f"Agent boot failed: {e}")
         raise e
     yield
-    # Shutdown hook
-    logger.info("Shutting down Farm360 Backend Core...")
+    logger.info("Farm360 Backend shutting down.")
 
-app = FastAPI(title="Farm360 Production Agent API", version="2.0", lifespan=lifespan)
 
+# ── App ───────────────────────────────────────────────────────────────────────
+app = FastAPI(
+    title="Farm360 AI API",
+    version="3.0",
+    description="Intelligent agricultural advisory — powered by OpenRouter LLMs",
+    lifespan=lifespan,
+)
+
+# More restrictive CORS for production
+_CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=_CORS_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
 
+
 def verify_api_key(api_key: str = Depends(api_key_header)):
-    if api_key != settings.farm360_api_key:
-        logger.warning("Unauthorized access attempt detected.")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Configuration API Key",
-        )
+    """Verify the API key (constant-time comparison to avoid timing attacks)."""
+    if not secrets.compare_digest(api_key, settings.farm360_api_key):
+        logger.warning("Unauthorized access attempt.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
     return api_key
 
+
+# ── Middleware: Rate Limiting ─────────────────────────────────────────────────
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    # Extract client IP
+    forwarded = request.headers.get("X-Forwarded-For")
+    client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host if request.client else "unknown"
+    
+    if not rate_limiter.is_allowed(client_ip):
+        logger.warning(f"Rate limit exceeded for {client_ip}")
+        return StreamingResponse(
+            content=iter(['{"detail":"Rate limit exceeded. Try again later."}']),
+            status_code=429,
+            media_type="application/json",
+            headers={"Retry-After": "60"},
+        )
+    
+    response = await call_next(request)
+    return response
+
+
+# ── Input validation helpers ──────────────────────────────────────────────────
+MAX_QUERY_LENGTH = 10000
+
+def validate_query(query: str):
+    if not query or not query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    if len(query) > MAX_QUERY_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Query too long (max {MAX_QUERY_LENGTH} chars)")
+
+
+def sanitize_filename(original: str) -> str:
+    """Generate a safe UUID-based filename to prevent path traversal."""
+    ext = os.path.splitext(original)[1] if "." in original else ""
+    safe_name = f"{uuid.uuid4().hex}{ext}"
+    return safe_name
+
+
+# ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/")
 def health_check():
-    return {"status": "ok", "message": "Farm360 Server Production Env Active"}
+    """Health check with model availability status."""
+    if agent is None:
+        return {"status": "error", "message": "Agent not initialized"}
+    
+    # Check model availability
+    model_status = {}
+    if hasattr(agent, 'api') and agent.api is not None:
+        model_status["crop_model"] = agent.api.crop_model is not None
+        model_status["dairy_model"] = agent.api.dairy_model is not None
+        model_status["vision_model"] = agent.api.vision_model is not None
+        model_status["animal_model"] = agent.api.animal_model is not None
 
-@app.post("/chat")
-async def chat_endpoint(query: str = Form(...), api_key: str = Depends(verify_api_key)):
-    """Expert chat endpoint returning structured JSON."""
-    if not query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty.")
-    try:
-        logger.info(f"Incoming Chat Request: {query[:50]}")
-        response = await run_in_threadpool(agent.chat, query)
-        # Return the structured response directly as requested
-        return response
-    except Exception as e:
-        logger.exception("Text Chat Failure")
-        raise HTTPException(status_code=500, detail="Inference Error")
+    return {
+        "status": "ok",
+        "message": "Farm360 AI v3 — ready",
+        "llm_active": agent.has_llm if agent else False,
+        "model": "openrouter/multi-model",
+        "models_loaded": model_status,
+    }
 
+
+# ── SSE streaming chat ────────────────────────────────────────────────────────
 @app.post("/chat_stream")
 async def chat_stream_endpoint(
     query: str = Form(...),
     session_id: str = Form("default_session"),
-    api_key: str = Depends(verify_api_key)
+    model: str = Form("google/gemma-4-26b-a4b-it:free"),
+    api_key: str = Depends(verify_api_key),
 ):
-    from fastapi.responses import StreamingResponse
-    import asyncio
-    import json
-    
-    async def event_generator():
-        try:
-            logger.info(f"Incoming Streaming Request: {query[:50]}")
-            structured_response = await run_in_threadpool(agent.chat, query)
-            
-            # For streaming a structured object, we'll send it as a single chunk 
-            # or we could stream based on keys. Here we send the JSON string.
-            full_json = json.dumps(structured_response, indent=2)
-            lines = full_json.split("\n")
-            
-            for i, line in enumerate(lines):
-                chunk = line + ("\n" if i < len(lines) - 1 else "")
-                safe_chunk = chunk.replace("\n", "\\n")
-                yield f"data: {safe_chunk}\n\n"
-                await asyncio.sleep(0.01)
-            
+    """
+    Real Server-Sent Events endpoint.
+    Streams tokens from the LLM one-by-one so the frontend can render
+    them progressively (like ChatGPT / Gemini).
+    """
+    validate_query(query)
+
+    logger.info(f"[STREAM] model={model} query={query[:60]!r}")
+
+    async def event_stream():
+        if agent is None or not agent.has_llm:
+            # ── Fallback: stream the deterministic response character by character ──
+            if agent is None:
+                fallback_text = "Service is warming up. Please retry in a few seconds."
+            else:
+                fallback_text = agent._fallback_prose(query)
+
+            chunk_size = 20
+            for i in range(0, len(fallback_text), chunk_size):
+                chunk = fallback_text[i:i+chunk_size]
+                safe = chunk.replace("\n", "\\n")
+                yield f"data: {safe}\n\n"
+                await asyncio.sleep(0.02)
             yield "data: [DONE]\n\n"
-        except Exception as e:
-            logger.error(f"Streaming Error: {str(e)}")
-            yield f"data: [ERROR] {str(e)}\n\n"
+            return
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+        # ── Real LLM streaming via OpenRouter ──────────────────────────────────
+        token_queue: q_module.Queue = q_module.Queue()
 
+        def producer():
+            """Run the synchronous generator in a background thread."""
+            try:
+                for token in agent.stream_query_prose(query, model=model):
+                    token_queue.put(token)
+            except Exception as e:
+                logger.error(f"Producer error: {e}")
+                token_queue.put(f"\n\n⚠️ **System Error**: {str(e)}")
+            finally:
+                token_queue.put(None)  # sentinel
+
+        thread = threading.Thread(target=producer, daemon=True)
+        thread.start()
+
+        loop = asyncio.get_event_loop()
+        try:
+            while True:
+                # Await the blocking queue.get with a timeout so we can detect hangs
+                try:
+                    token = await loop.run_in_executor(
+                        None, lambda: token_queue.get(timeout=30)
+                    )
+                except q_module.Empty:
+                    logger.error("Stream timeout — no token received for 30s")
+                    yield "data: ⚠️ **Stream timeout**. Please try again.\\n\\n"
+                    yield "data: [DONE]\\n\\n"
+                    return
+
+                if token is None:
+                    break
+                # Escape newlines so each SSE frame is on one line
+                safe = token.replace("\n", "\\n")
+                yield f"data: {safe}\n\n"
+        except asyncio.CancelledError:
+            logger.info("Client disconnected — stream cancelled.")
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",   # nginx: disable buffering
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ── Non-streaming chat (legacy) ───────────────────────────────────────────────
+@app.post("/chat")
+async def chat_endpoint(
+    query: str = Form(...),
+    model: str = Form("google/gemma-4-26b-a4b-it:free"),
+    api_key: str = Depends(verify_api_key),
+):
+    validate_query(query)
+    try:
+        logger.info(f"[CHAT] query={query[:60]!r}")
+        if agent is None:
+            raise HTTPException(status_code=503, detail="Service is warming up. Please retry in a few seconds.")
+        text = await run_in_threadpool(agent.chat_blocking, query, None, model)
+        return {"query": query, "response": text}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Chat endpoint error")
+        raise HTTPException(status_code=500, detail="Inference error")
+
+
+# ── Image analysis ────────────────────────────────────────────────────────────
 @app.post("/analyze_image")
 async def analyze_image_endpoint(
-    query: str = Form("Analyze this crop image and diagnose any visible diseases, deficiencies, or health issues."),
+    query: str = Form("Analyze this crop image and diagnose any visible diseases, deficiencies, or pest damage."),
+    model: str = Form("google/gemma-4-26b-a4b-it:free"),
     image: UploadFile = File(...),
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key),
 ):
-    """Multimodal handler for crop images. Returns structured expert analysis."""
     if not image.filename:
-        raise HTTPException(status_code=400, detail="Empty payload passed")
+        raise HTTPException(status_code=400, detail="No file uploaded")
 
-    temp_path = os.path.join(TEMP_DIR, image.filename)
+    # Validate file size (read first chunk to check)
+    contents = await image.read(MAX_FILE_SIZE + 1)
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_FILE_SIZE // (1024*1024)} MB)")
+
+    # Reset stream position after reading
+    image.file.seek(0) if image.file.seekable() else None
+
+    # Use a safe UUID-based filename to prevent path traversal
+    safe_name = sanitize_filename(image.filename)
+    temp_path = os.path.join(TEMP_DIR, safe_name)
     try:
-        logger.info(f"Incoming Multimodal Request: {query[:50]}")
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        # agent.chat now returns a dict (structured JSON)
-        structured_response = await run_in_threadpool(agent.chat, query, temp_path)
-        # Return the structured response directly - same shape as /chat
-        return structured_response
+        logger.info(f"[IMAGE] file={image.filename} (safe={safe_name}) query={query[:50]!r}")
+        # Use async file I/O via run_in_threadpool
+        await run_in_threadpool(lambda: _save_upload_sync(image.file, temp_path))
+
+        text = await run_in_threadpool(agent.chat_blocking, query, temp_path, model)
+        return {"query": query, "response": text}
+
     except Exception as e:
-        logger.exception("Vision Pipeline Faults")
-        raise HTTPException(status_code=500, detail="Failure analyzing image structure")
+        logger.exception("Image analysis error")
+        raise HTTPException(status_code=500, detail="Image processing error")
     finally:
         if os.path.exists(temp_path):
-            os.remove(temp_path)
+            await run_in_threadpool(os.remove, temp_path)
+
+
+def _save_upload_sync(file_obj, dest_path: str):
+    """Synchronous helper to write uploaded file to disk."""
+    with open(dest_path, "wb") as f:
+        shutil.copyfileobj(file_obj, f)
+
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=False)

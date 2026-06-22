@@ -1,275 +1,282 @@
 "use client";
-import React from "react";
+import React, { useEffect, useRef, useCallback, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Copy, Check, Leaf, User } from "lucide-react";
+import type { Message } from "@/app/page";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-interface StructuredResponse {
-  _reasoning_step?: string;
-  summary?: string;
-  insights?: string[];
-  recommendations?: string[];
-  action_steps?: string[];
-  missing_data_warning?: string | null;
+// ─── Copy button ────────────────────────────────────────────────────────────
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = React.useState(false);
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [text]);
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copy"
+      className="copy-btn inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-[var(--text-muted)] hover:text-white hover:bg-white/8 transition-all"
+    >
+      {copied ? (
+        <><Check size={11} className="text-green-400" /><span className="text-green-400">Copied</span></>
+      ) : (
+        <><Copy size={11} /><span>Copy</span></>
+      )}
+    </button>
+  );
 }
 
-// ─── Reusable Section Card ────────────────────────────────────────────────────
-function SectionCard({
-  icon,
-  title,
-  accent,
-  children,
-}: {
-  icon: string;
-  title: string;
-  accent: string; // tailwind border+bg classes
-  children: React.ReactNode;
-}) {
+// ─── Typing indicator ───────────────────────────────────────────────────────
+const TypingDots = React.memo(function TypingDots() {
   return (
-    <div className={`rounded-xl border p-4 ${accent}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-widest mb-2.5 opacity-60 flex items-center gap-1.5">
-        <span className="text-base leading-none">{icon}</span>
-        {title}
-      </p>
-      <div className="text-sm leading-relaxed text-gray-200">{children}</div>
+    <div className="flex items-center gap-1.5 py-1.5 px-0.5">
+      <span className="w-2 h-2 rounded-full bg-green-500 dot-1" />
+      <span className="w-2 h-2 rounded-full bg-green-500 dot-2" />
+      <span className="w-2 h-2 rounded-full bg-green-500 dot-3" />
     </div>
   );
-}
+});
 
-// ─── Bullet List ─────────────────────────────────────────────────────────────
-function BulletList({ items }: { items: string[] }) {
+// ─── Markdown renderer (memoized for performance) ────────────────────────────
+const Markdown = React.memo(function Markdown({ content, streaming }: { content: string; streaming?: boolean }) {
   return (
-    <ul className="space-y-2">
-      {items.map((item, i) => (
-        <li key={i} className="flex items-start gap-2.5">
-          <span className="shrink-0 mt-[5px] w-1.5 h-1.5 rounded-full bg-green-400" />
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-// ─── Numbered Step List ───────────────────────────────────────────────────────
-function NumberedList({ items }: { items: string[] }) {
-  return (
-    <ol className="space-y-2">
-      {items.map((item, i) => (
-        <li key={i} className="flex items-start gap-2.5">
-          <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold bg-purple-700 text-purple-100">
-            {i + 1}
-          </span>
-          <span>{item}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-// ─── Structured Response Card ─────────────────────────────────────────────────
-function StructuredCard({ data }: { data: StructuredResponse }) {
-  return (
-    <div className="w-full space-y-2.5">
-      {/* Summary — banner */}
-      {data.summary && (
-        <div className="bg-gradient-to-r from-green-900/50 to-emerald-900/40 border border-green-700/50 rounded-xl px-4 py-3">
-          <p className="text-green-300 font-semibold text-sm leading-snug">
-            🌾 {data.summary}
-          </p>
-        </div>
-      )}
-
-      {/* Analysis \/ Reasoning step */}
-      {data._reasoning_step && (
-        <SectionCard
-          icon="🔍"
-          title="Analysis"
-          accent="border-blue-800/50 bg-blue-950/25"
-        >
-          <p>{data._reasoning_step}</p>
-        </SectionCard>
-      )}
-
-      {/* Insights */}
-      {data.insights && data.insights.length > 0 && (
-        <SectionCard
-          icon="💡"
-          title="Key Insights"
-          accent="border-yellow-800/40 bg-yellow-950/15"
-        >
-          <BulletList items={data.insights} />
-        </SectionCard>
-      )}
-
-      {/* Recommendations */}
-      {data.recommendations && data.recommendations.length > 0 && (
-        <SectionCard
-          icon="✅"
-          title="Recommendations"
-          accent="border-emerald-800/50 bg-emerald-950/20"
-        >
-          <BulletList items={data.recommendations} />
-        </SectionCard>
-      )}
-
-      {/* Action Steps */}
-      {data.action_steps && data.action_steps.length > 0 && (
-        <SectionCard
-          icon="📌"
-          title="Action Steps"
-          accent="border-purple-800/50 bg-purple-950/20"
-        >
-          <NumberedList items={data.action_steps} />
-        </SectionCard>
-      )}
-
-      {/* Missing Data Warning */}
-      {data.missing_data_warning && (
-        <div className="bg-red-900/30 border border-red-700/50 rounded-xl px-4 py-3">
-          <p className="text-red-300 font-semibold text-sm">
-            ⚠️ {data.missing_data_warning}
-          </p>
-        </div>
-      )}
+    <div className={`prose${streaming && content ? " streaming-cursor" : ""}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Headings
+          h1: ({ children }) => <h1 style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f2f2f2", margin: "1em 0 0.4em" }}>{children}</h1>,
+          h2: ({ children }) => <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#ebebeb", margin: "0.9em 0 0.35em" }}>{children}</h2>,
+          h3: ({ children }) => <h3 style={{ fontSize: "0.88rem", fontWeight: 600, color: "#e0e0e0", margin: "0.8em 0 0.3em" }}>{children}</h3>,
+          // Paragraphs
+          p: ({ children }) => <p style={{ margin: "0.45em 0", color: "#d4d4d4", lineHeight: 1.65 }}>{children}</p>,
+          // Unordered list
+          ul: ({ children }) => <ul style={{ listStyle: "none", padding: 0, margin: "0.4em 0" }}>{children}</ul>,
+          // Ordered list
+          ol: ({ children }) => <ol style={{ listStyle: "none", padding: 0, margin: "0.4em 0", counterReset: "steps" }}>{children}</ol>,
+          // List items — handle both ul and ol
+          li: ({ children, ...props }) => {
+            const listProps = props as React.LiHTMLAttributes<HTMLLIElement> & { ordered?: boolean; index?: number };
+            const ordered = listProps.ordered;
+            return ordered ? (
+              <li style={{ display: "flex", gap: "0.55em", alignItems: "flex-start", margin: "0.25em 0", counterIncrement: "steps" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: "rgba(22,163,74,0.18)", color: "#4ade80", fontSize: "0.68rem", fontWeight: 700, flexShrink: 0, marginTop: "0.12em" }}>
+                  {(listProps.index || 0) + 1}
+                </span>
+                <span>{children}</span>
+              </li>
+            ) : (
+              <li style={{ display: "flex", gap: "0.55em", alignItems: "flex-start", margin: "0.25em 0" }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#16a34a", marginTop: "0.48em", flexShrink: 0, display: "block" }} />
+                <span>{children}</span>
+              </li>
+            );
+          },
+          // Strong/emphasis
+          strong: ({ children }) => <strong style={{ fontWeight: 600, color: "#f0f0f0" }}>{children}</strong>,
+          em: ({ children }) => <em style={{ color: "#999", fontStyle: "italic" }}>{children}</em>,
+          // Code
+          code: ({ className, children }) => {
+            const isBlock = !!className;
+            return isBlock ? (
+              <code style={{ fontFamily: "'Courier New', Consolas, monospace", fontSize: "0.81em", color: "#86efac" }}>{children}</code>
+            ) : (
+              <code style={{ background: "rgba(255,255,255,0.07)", border: "1px solid #2e2e2e", borderRadius: 4, padding: "0.1em 0.38em", fontFamily: "'Courier New', Consolas, monospace", fontSize: "0.8em", color: "#86efac" }}>{children}</code>
+            );
+          },
+          pre: ({ children }) => (
+            <pre style={{ background: "#111", border: "1px solid #242424", borderRadius: 10, padding: "12px 14px", overflowX: "auto", margin: "0.7em 0" }}>{children}</pre>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote style={{ borderLeft: "2px solid #16a34a", margin: "0.5em 0", padding: "0.25em 0.75em", color: "#888" }}>{children}</blockquote>
+          ),
+          hr: () => <hr style={{ border: "none", borderTop: "1px solid #242424", margin: "0.9em 0" }} />,
+          table: ({ children }) => (
+            <div style={{ overflowX: "auto", margin: "0.7em 0" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.81em" }}>{children}</table>
+            </div>
+          ),
+          th: ({ children }) => <th style={{ background: "#1e1e1e", border: "1px solid #242424", padding: "5px 9px", textAlign: "left", fontWeight: 600, color: "#ccc" }}>{children}</th>,
+          td: ({ children }) => <td style={{ border: "1px solid #242424", padding: "5px 9px", color: "#bbb" }}>{children}</td>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if content changed significantly
+  // This prevents re-renders during streaming when only streaming prop changes
+  if (prevProps.content !== nextProps.content) return false;
+  // Don't re-render just because streaming changed from true to true
+  if (prevProps.streaming === nextProps.streaming) return true;
+  // Re-render when streaming ends (true -> false)
+  if (prevProps.streaming && !nextProps.streaming) return false;
+  return true;
+});
 
-// ─── Assistant Message — parses JSON or falls back to plain text ──────────────
-function AssistantMessage({ content, streaming }: { content: string; streaming?: boolean }) {
-  // Show pulsing dots while waiting for first content
-  if (content === "") {
-    return (
-      <div className="flex gap-1.5 items-center py-2 px-1">
-        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse [animation-delay:150ms]" />
-        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse [animation-delay:300ms]" />
-      </div>
-    );
-  }
-
-  // While actively streaming, show a "thinking" indicator instead of partial JSON
-  if (streaming) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-gray-400 py-1">
-        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-        Analyzing your query…
-      </div>
-    );
-  }
-
-  // Try to parse as structured JSON once stream is complete
-  let structured: StructuredResponse | null = null;
-  try {
-    const parsed = JSON.parse(content.trim());
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      !Array.isArray(parsed) &&
-      (parsed.summary || parsed._reasoning_step || parsed.recommendations || parsed.insights)
-    ) {
-      structured = parsed as StructuredResponse;
-    }
-  } catch {
-    // Not JSON — fall through to plain text
-  }
-
-  if (structured) {
-    return <StructuredCard data={structured} />;
-  }
-
-  // Fallback: plain text (error messages, legacy responses)
-  return (
-    <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
-      {content}
-    </p>
-  );
-}
-
-// ─── Suggestion Chips (shown on empty state) ──────────────────────────────────
+// ─── Suggestion chips ───────────────────────────────────────────────────────
 const SUGGESTIONS = [
-  "Suggest better crops",
-  "My crop leaves are yellow",
-  "Best irrigation method",
-  "Dairy production forecast",
+  { icon: "🌾", short: "Best crops for June", full: "What are the best crops to plant in June in Punjab, India?" },
+  { icon: "🍂", short: "Yellow leaf diagnosis", full: "My rice crop leaves are turning yellow at the tips. What could be wrong and how do I fix it?" },
+  { icon: "💧", short: "Irrigation for rice", full: "What is the best irrigation schedule and method for growing rice in a 5-acre field?" },
+  { icon: "🐄", short: "Increase milk production", full: "How can I increase the daily milk yield of my Holstein-Friesian cattle herd?" },
+  { icon: "🌿", short: "Tomato fertilizer plan", full: "What is the complete fertilizer and nutrient schedule for growing tomatoes from seedling to harvest?" },
+  { icon: "🐛", short: "Pest control guide", full: "What are the most effective organic and chemical pest control methods for cotton crops?" },
 ];
 
-// ─── Main ChatCanvas ──────────────────────────────────────────────────────────
+// ─── Main ChatCanvas ────────────────────────────────────────────────────────
 export default function ChatCanvas({
   messages,
+  onSuggestionClick,
 }: {
-  messages: Array<{ role: string; content: string; imagePreview?: string; streaming?: boolean }>;
+  messages: Message[];
+  onSuggestionClick: (text: string) => void;
 }) {
-  return (
-    <div className="flex-1 overflow-y-auto w-full pb-36">
-      <div className="max-w-3xl mx-auto flex flex-col gap-6 p-6 mt-8">
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Memoize the last message to prevent excessive scrolling
+  const lastMessage = useMemo(() => {
+    if (messages.length === 0) return null;
+    return messages[messages.length - 1];
+  }, [messages]);
 
-        {/* Empty state */}
+  // Optimized auto-scroll - only scroll when there's a new message or content change
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (bottomRef.current && scrollContainerRef.current) {
+        const container = scrollContainerRef.current;
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+        
+        // Only auto-scroll if user is near bottom or it's a new message
+        if (isNearBottom || messages.length <= 1) {
+          bottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+        }
+      }
+    };
+    
+    // Use requestAnimationFrame to avoid layout thrashing
+    const animationId = requestAnimationFrame(scrollToBottom);
+    return () => cancelAnimationFrame(animationId);
+  }, [lastMessage?.id, lastMessage?.content, messages.length]);
+
+  return (
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto w-full pb-36" style={{ scrollbarWidth: "thin" }}>
+      <div className="max-w-3xl mx-auto flex flex-col gap-5 px-4 pt-6 pb-4">
+
+        {/* ── Empty state ── */}
         {messages.length === 0 && (
-          <div className="text-center mt-24 select-none">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-green-900/40 border border-green-700/50 mb-5 text-3xl">
+          <div className="flex flex-col items-center text-center mt-12 select-none">
+            {/* Logo */}
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 text-2xl"
+              style={{ background: "rgba(22,163,74,0.12)", border: "1px solid rgba(22,163,74,0.25)" }}
+            >
               🌾
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
+
+            <h1 className="text-2xl font-semibold mb-2" style={{ color: "#f2f2f2" }}>
               Farm360 AI Expert
             </h1>
-            <p className="text-gray-400 text-sm max-w-sm mx-auto leading-relaxed">
-              Your intelligent agricultural advisor. Ask about crops, diseases,
-              irrigation, or upload a plant image for diagnosis.
+            <p className="text-sm mb-8 max-w-xs leading-relaxed" style={{ color: "#666" }}>
+              Your intelligent agricultural advisor. Ask anything about crops, diseases, soil, irrigation, or livestock — in English or Hindi.
             </p>
-            <div className="flex flex-wrap justify-center gap-2 mt-6">
-              {SUGGESTIONS.map((hint) => (
-                <span
-                  key={hint}
-                  className="px-3 py-1.5 rounded-full text-xs bg-gray-800 border border-gray-700 text-gray-300"
+
+            {/* Suggestion grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-xl text-left">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s.short}
+                  onClick={() => onSuggestionClick(s.full)}
+                  className="chip flex items-start gap-3 px-4 py-3 rounded-xl text-left"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text)",
+                  }}
                 >
-                  {hint}
-                </span>
+                  <span className="text-xl shrink-0">{s.icon}</span>
+                  <div>
+                    <div className="text-sm font-medium leading-snug" style={{ color: "#e0e0e0" }}>{s.short}</div>
+                    <div className="text-xs mt-0.5 leading-relaxed" style={{ color: "#555" }}>{s.full.slice(0, 60)}…</div>
+                  </div>
+                </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Messages */}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex items-start gap-2 ${
-              msg.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            {/* Avatar for assistant */}
-            {msg.role === "assistant" && (
-              <div className="shrink-0 w-7 h-7 rounded-full bg-green-900 border border-green-700 flex items-center justify-center text-sm mt-1">
-                🌿
+        {/* ── Messages ── */}
+        {messages.map((msg) => (
+          <div key={msg.id} className="msg-in">
+            {msg.role === "user" ? (
+              /* User bubble */
+              <div className="flex justify-end gap-2.5 items-end">
+                <div className="max-w-[78%] space-y-2">
+                  {msg.imagePreview && (
+                    <img
+                      src={msg.imagePreview}
+                      alt="Uploaded image"
+                      className="max-h-48 rounded-xl object-contain ml-auto block"
+                    />
+                  )}
+                  {msg.content && (
+                    <div
+                      className="text-sm leading-relaxed px-4 py-3 rounded-2xl rounded-br-sm text-white"
+                      style={{ background: "var(--user-blue)" }}
+                    >
+                      {msg.content}
+                    </div>
+                  )}
+                </div>
+                <div
+                  className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center mb-0.5"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border-2)" }}
+                >
+                  <User size={13} style={{ color: "#777" }} />
+                </div>
+              </div>
+            ) : (
+              /* Assistant bubble */
+              <div className="flex justify-start gap-2.5 items-end msg-group">
+                <div
+                  className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center mb-0.5"
+                  style={{ background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)" }}
+                >
+                  <Leaf size={13} style={{ color: "#4ade80" }} />
+                </div>
+
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div
+                    className="px-4 py-3.5 rounded-2xl rounded-bl-sm"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                  >
+                    {msg.content === "" ? (
+                      <TypingDots />
+                    ) : (
+                      <Markdown content={msg.content} streaming={msg.streaming} />
+                    )}
+                  </div>
+
+                  {/* Action bar (shown after response completes) */}
+                  {!msg.streaming && msg.content && (
+                    <div className="flex items-center gap-0.5 pl-1">
+                      <CopyButton text={msg.content} />
+                      <span className="text-[11px] px-2" style={{ color: "#3a3a3a" }}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-
-            <div
-              className={`max-w-[85%] rounded-2xl ${
-                msg.role === "user"
-                  ? "bg-blue-600 text-white px-4 py-3"
-                  : "bg-gray-800/80 border border-gray-700/60 px-4 py-4"
-              }`}
-            >
-              {/* Image preview for user uploads */}
-              {msg.imagePreview && (
-                <img
-                  src={msg.imagePreview}
-                  alt="upload preview"
-                  className="max-h-64 object-contain rounded-lg mb-3"
-                />
-              )}
-
-              {msg.role === "assistant" ? (
-                <AssistantMessage
-                  content={msg.content}
-                  streaming={msg.streaming}
-                />
-              ) : (
-                <p className="text-sm leading-relaxed">{msg.content}</p>
-              )}
-            </div>
           </div>
         ))}
+
+        <div ref={bottomRef} />
       </div>
     </div>
   );

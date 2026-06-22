@@ -14,18 +14,25 @@ from backend.config import settings
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
 class Farm360API:
-    def __init__(self):
+    def __init__(self, model_base_path: str = None):
         logger.info("Initializing ML Models...")
-        
-        # In Docker, models are mounted at /app/<model_folder>
-        # Check if running in Docker by checking mount points
-        docker_mount_base = "/app" if os.path.exists("/app") and os.path.isdir("/app") else BASE_DIR
-        
+
+        # Determine base path: explicit arg > settings > fallback
+        if model_base_path:
+            resolved_base = model_base_path
+        elif settings.model_base_path:
+            resolved_base = settings.model_base_path
+        else:
+            resolved_base = BASE_DIR
+
+        logger.info(f"Model base path: {resolved_base}")
+
         # 1. Crop Regression
         logger.info("Loading Crop Production Regression Model...")
-        self.crop_model_path = os.path.join(docker_mount_base, settings.crop_model_path)
-        
+        self.crop_model_path = os.path.join(resolved_base, settings.crop_model_path)
+
         if not os.path.exists(self.crop_model_path):
             logger.warning(f"Crop model not found: {self.crop_model_path}. Running in limited mode.")
             self.crop_model = None
@@ -34,7 +41,7 @@ class Farm360API:
 
         # 2. Dairy Regression
         logger.info("Loading Dairy Intelligence Model...")
-        self.dairy_model_path = os.path.join(docker_mount_base, settings.dairy_model_path)
+        self.dairy_model_path = os.path.join(resolved_base, settings.dairy_model_path)
         if not os.path.exists(self.dairy_model_path):
              logger.warning(f"Dairy model not found: {self.dairy_model_path}. Running in limited mode.")
              self.dairy_model = None
@@ -44,97 +51,126 @@ class Farm360API:
 
         # 3. Animal Disease Model
         logger.info("Loading Animal Disease Classification Model...")
-        self.animal_model_dir = os.path.join(docker_mount_base, settings.animal_model_dir)
-        
+        self.animal_model_dir = os.path.join(resolved_base, settings.animal_model_dir)
+
         if not os.path.exists(self.animal_model_dir):
             logger.warning(f"Animal model directory not found: {self.animal_model_dir}. Running in limited mode.")
             self.animal_model = None
             self.animal_scaler = None
             self.animal_encoders = {}
         else:
-            self.animal_model = joblib.load(os.path.join(self.animal_model_dir, "RandomForest_Tuned.pkl"))
-            self.animal_scaler = joblib.load(os.path.join(self.animal_model_dir, "classification_scaler.pkl"))
+            model_file = os.path.join(self.animal_model_dir, "RandomForest_Tuned.pkl")
+            scaler_file = os.path.join(self.animal_model_dir, "classification_scaler.pkl")
             
-            self.animal_encoders = {}
-            for feat in ["Animal", "Symptom 1", "Symptom 2", "Symptom 3", "Disease"]:
-                enc_file = os.path.join(self.animal_model_dir, f"{feat}_label_encoder.pkl")
-                if not os.path.exists(enc_file):
-                    logger.warning(f"Missing encoder {enc_file}")
-                    self.animal_encoders = {}
-                    self.animal_model = None
-                    break
-                self.animal_encoders[feat] = joblib.load(enc_file)
+            if not os.path.exists(model_file) or not os.path.exists(scaler_file):
+                logger.warning(f"Animal model files incomplete in {self.animal_model_dir}. Running in limited mode.")
+                self.animal_model = None
+                self.animal_scaler = None
+                self.animal_encoders = {}
+            else:
+                self.animal_model = joblib.load(model_file)
+                self.animal_scaler = joblib.load(scaler_file)
+
+                self.animal_encoders = {}
+                for feat in ["Animal", "Symptom 1", "Symptom 2", "Symptom 3", "Disease"]:
+                    enc_file = os.path.join(self.animal_model_dir, f"{feat}_label_encoder.pkl")
+                    if not os.path.exists(enc_file):
+                        logger.warning(f"Missing encoder {enc_file}")
+                        self.animal_encoders = {}
+                        self.animal_model = None
+                        break
+                    self.animal_encoders[feat] = joblib.load(enc_file)
 
         # 4. Crop Vision Model
         logger.info("Loading Crop Disease Vision Model (ResNet18)...")
-        self.vision_model_path = os.path.join(docker_mount_base, settings.crop_vision_model_path)
+        self.vision_model_path = os.path.join(resolved_base, settings.crop_vision_model_path)
         if not os.path.exists(self.vision_model_path):
              logger.warning(f"Vision model not found: {self.vision_model_path}. Running in limited mode.")
              self.vision_model = None
         else:
              self.vision_model = models.resnet18()
              self.vision_model.fc = nn.Linear(self.vision_model.fc.in_features, 17)
-             self.vision_model.load_state_dict(torch.load(self.vision_model_path, map_location=torch.device('cpu'), weights_only=True))
+             self.vision_model.load_state_dict(
+                 torch.load(self.vision_model_path, map_location=torch.device('cpu'), weights_only=True)
+             )
              self.vision_model.eval()
-        
+
         logger.success("Farm360API Initialized (some models may be unavailable in this environment)")
 
-    def predict_crop_yield(self, crop: str, season: str, state: str, area: float, rainfall: float, fertilizer: float, pesticide: float):
+    def predict_crop_yield(
+        self, crop: str, season: str, state: str,
+        area: float, rainfall: float, fertilizer: float, pesticide: float,
+        crop_year: int = None
+    ):
         try:
             if self.crop_model is None:
-                return {"message": "Crop yield model not available in this environment", "predicted_production": None}
-            
+                return {"error": "Crop yield model not available in this environment", "predicted_production": None}
+
+            import datetime
+            if crop_year is None:
+                crop_year = datetime.datetime.now().year
+
             df = pd.DataFrame({
-                "Crop": [crop], "Season": [season], "State": [state], "Area": [area],
+                "Crop": [crop], "Crop_Year": [crop_year], "Season": [season], "State": [state], "Area": [area],
                 "Annual_Rainfall": [rainfall], "Fertilizer": [fertilizer], "Pesticide": [pesticide]
             })
             log_pred = self.crop_model.predict(df)[0]
             production = np.expm1(log_pred)
-            return {"predicted_production": float(production), "yield_per_area": float(production / area if area > 0 else 0)}
+            return {
+                "predicted_production": float(production),
+                "yield_per_area": float(production / area if area > 0 else 0),
+            }
         except Exception as e:
             logger.error(f"Crop Yield Inference Failed: {str(e)}")
-            raise e
+            return {"error": str(e), "predicted_production": None}
+
 
     def predict_dairy_production(self, years: list):
         try:
             if self.dairy_model is None:
-                return {"message": "Dairy model not available in this environment"}
-            
+                return {"error": "Dairy model not available in this environment"}
+
             X = np.array([[y] for y in years])
             preds = self.dairy_model.predict(X)
             return {int(y): float(p) for y, p in zip(years, preds)}
         except Exception as e:
             logger.error(f"Dairy Inference Failed: {str(e)}")
-            raise e
+            return {"error": str(e)}
 
     def predict_crop_disease_from_image(self, image_tensor):
         try:
             if self.vision_model is None:
-                return {"message": "Vision model not available in this environment", "class_index": None}
-            
+                return {"error": "Vision model not available in this environment", "class_index": None}
+
             with torch.no_grad():
                 out = self.vision_model(image_tensor)
                 _, pred = torch.max(out, 1)
             return {"class_index": int(pred.item()), "confidence": "High"}
         except Exception as e:
             logger.error(f"Vision Inference Failed: {str(e)}")
-            raise e
+            return {"error": str(e), "class_index": None}
 
-    def predict_animal_disease(self, animal: str, age: float, temperature: float, symptom1: str, symptom2: str, symptom3: str):
+    def predict_animal_disease(
+        self, animal: str, age: float, temperature: float,
+        symptom1: str, symptom2: str, symptom3: str
+    ):
         try:
             if self.animal_model is None or self.animal_scaler is None or not self.animal_encoders:
-                return {"message": "Animal disease model not available in this environment", "prediction": None}
-            
+                return {"error": "Animal disease model not available in this environment", "prediction": None}
+
             def safe_encode(feat_name, val):
                 enc = self.animal_encoders[feat_name]
                 return enc.transform([val])[0] if val in enc.classes_ else 0
-                    
+
             df = pd.DataFrame({
-                "Animal": [safe_encode("Animal", animal)], "Age": [age], "Temperature": [temperature],
-                "Symptom 1": [safe_encode("Symptom 1", symptom1)], "Symptom 2": [safe_encode("Symptom 2", symptom2)],
-                "Symptom 3": [safe_encode("Symptom 3", symptom3)]
+                "Animal": [safe_encode("Animal", animal)],
+                "Age": [age],
+                "Temperature": [temperature],
+                "Symptom 1": [safe_encode("Symptom 1", symptom1)],
+                "Symptom 2": [safe_encode("Symptom 2", symptom2)],
+                "Symptom 3": [safe_encode("Symptom 3", symptom3)],
             })
-            
+
             df_scaled = self.animal_scaler.transform(df)
             pred_idx = self.animal_model.predict(df_scaled)[0]
             pred_disease = self.animal_encoders["Disease"].inverse_transform([pred_idx])[0]
@@ -142,35 +178,4 @@ class Farm360API:
             return {"prediction": str(pred_disease), "confidence": float(max(probs))}
         except Exception as e:
             logger.error(f"Animal Inference Failed: {str(e)}")
-            raise e
-
-import json
-import re
-
-class LLMValidator:
-    """Enforces structured JSON format from the LLM and validates schema keys."""
-    REQUIRED_KEYS = {"summary", "insights", "recommendations", "action_steps", "missing_data_warning"}
-    
-    @staticmethod
-    def parse_and_validate(raw_text: str) -> dict:
-        # Strip markdown code blocks if present
-        text = raw_text.strip()
-        if text.startswith("```"):
-            match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
-            if match:
-                text = match.group(1).strip()
-                
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON format from LLM: {str(e)}\nRaw Output: {text[:100]}...")
-            
-        if not isinstance(data, dict):
-            raise ValueError("LLM Output must be a JSON object (dictionary)")
-            
-        missing_keys = LLMValidator.REQUIRED_KEYS - set(data.keys())
-        if missing_keys:
-            raise ValueError(f"Missing required keys in LLM JSON output: {missing_keys}")
-            
-        # Optional: ensure specific types if needed, but keys are enough for now
-        return data
+            return {"error": str(e), "prediction": None}

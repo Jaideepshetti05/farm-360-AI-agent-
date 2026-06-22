@@ -1,6 +1,14 @@
 import os
 import sys
 
+# Ensure backend can be imported
+base_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(base_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from backend.config import settings
+
 def verify_setup():
     """Verify all models and dependencies before running"""
     print("="*60)
@@ -34,30 +42,26 @@ def verify_setup():
     
     # Check environment variables
     print("\n2. Checking environment variables...")
-    google_key = os.getenv("GOOGLE_API_KEY", "NOT_SET")
-    if google_key == "NOT_SET":
-        print("   ⚠ GOOGLE_API_KEY not set (will use deterministic mode)")
-    elif google_key == "your_actual_google_gemini_api_key_here":
-        print("   ⚠ GOOGLE_API_KEY has default value (will use deterministic mode)")
+    openrouter_key = settings.openrouter_api_key
+    if not openrouter_key:
+        print("   ⚠ OPENROUTER_API_KEY not set (will use deterministic fallback mode)")
     else:
-        print("   ✓ GOOGLE_API_KEY configured")
+        print(f"   ✓ OPENROUTER_API_KEY configured (starts with: {openrouter_key[:12]}...)")
     
-    farm360_key = os.getenv("FARM360_API_KEY", "NOT_SET")
-    if farm360_key == "NOT_SET":
+    farm360_key = settings.farm360_api_key
+    if not farm360_key:
         print("   ⚠ FARM360_API_KEY not set")
     else:
-        print("   ✓ FARM360_API_KEY configured")
+        print(f"   ✓ FARM360_API_KEY configured")
     
     # Check model files
     print("\n3. Checking model files...")
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.dirname(base_dir)
     
     models_to_check = [
-        ("Crop Regression", os.path.join(parent_dir, "crop_regression", "models", "production_model_log.pkl")),
-        ("Dairy Intelligence", os.path.join(parent_dir, "models", "dairy_intelligence_v1_20260217_210257.pkl")),
-        ("Animal Disease RF", os.path.join(parent_dir, "models", "animal_disease_20260218_215356", "RandomForest_Tuned.pkl")),
-        ("Crop Vision", os.path.join(parent_dir, "crop_vision", "models", "crop_disease_model.pth")),
+        ("Crop Regression", os.path.join(settings.model_base_path, settings.crop_model_path)),
+        ("Dairy Intelligence", os.path.join(settings.model_base_path, settings.dairy_model_path)),
+        ("Animal Disease RF", os.path.join(settings.model_base_path, settings.animal_model_dir, "RandomForest_Tuned.pkl")),
+        ("Crop Vision", os.path.join(settings.model_base_path, settings.crop_vision_model_path)),
     ]
     
     for model_name, model_path in models_to_check:

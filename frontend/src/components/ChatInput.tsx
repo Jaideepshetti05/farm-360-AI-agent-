@@ -1,183 +1,328 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
-import { Send, Paperclip } from "lucide-react";
+import React, {
+  useState, useRef, useEffect,
+  useCallback, forwardRef, useImperativeHandle,
+} from "react";
+import { Send, Paperclip, X, Loader2, Wifi, WifiOff } from "lucide-react";
+import type { Message } from "@/app/page";
 
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-  imagePreview?: string;
-  streaming?: boolean;
-};
+// ─── Constants ──────────────────────────────────────────────────────────────
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1500;
+const REQUEST_TIMEOUT_MS = 300000; // 5 minutes for long streams
 
-export default function ChatInput({
-  setMessages,
-}: {
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-}) {
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+// ─── Public handle (used by parent to trigger suggestion sends) ──────────────
+export type ChatInputHandle = { sendQuery: (q: string) => void };
 
-  // We accumulate the full JSON string in a ref — never set partial state
-  const contentAccRef = useRef("");
+// ─── Helper: delay ──────────────────────────────────────────────────────────
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [loading]);
+// ─── Helper: fetch with timeout ─────────────────────────────────────────────
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // Helper: update the last assistant message
-  const updateLastMsg = (patch: Partial<Message>) => {
-    setMessages((prev) => {
-      const updated = [...prev];
-      updated[updated.length - 1] = { ...updated[updated.length - 1], ...patch };
-      return updated;
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
     });
-  };
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim() && !file) return;
+// ─── Generate a session ID (SSR-safe: only call on client) ──────────────────
+function getOrCreateSessionId(): string {
+  if (typeof window === "undefined") {
+    // Running on the server — return a temporary placeholder (will be replaced in useEffect)
+    return `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  }
+  const KEY = "farm360_session_id";
+  let sid = localStorage.getItem(KEY);
+  if (!sid) {
+    sid = `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    localStorage.setItem(KEY, sid);
+  }
+  return sid;
+}
 
-    const sentQuery = query;
-    const previewUrl = file ? URL.createObjectURL(file) : undefined;
-    const uploadRef = file;
+// ─── Component ───────────────────────────────────────────────────────────────
+const ChatInput = forwardRef<ChatInputHandle, {
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  selectedModel: string;
+}>(function ChatInput({ messages, setMessages, selectedModel }, ref) {
+  const [query, setQuery]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [file, setFile]       = useState<File | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<"online" | "offline" | "checking">("online");
 
-    // Append user message
-    setMessages((prev) => [
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const textareaRef    = useRef<HTMLTextAreaElement>(null);
+  const contentAccRef  = useRef("");
+  const currentIdRef   = useRef("");
+  const loadingRef     = useRef(false); // sync ref for callback closures
+  const retryCountRef  = useRef(0);
+  const sessionIdRef   = useRef(""); // Populated in useEffect (client-only: localStorage)
+
+  // ── Initialize sessionId from localStorage (client-only) ─────────────────
+  useEffect(() => {
+    sessionIdRef.current = getOrCreateSessionId();
+  }, []);
+
+  // ── Auto-resize textarea ─────────────────────────────────────────────────
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 168) + "px";
+  }, [query]);
+
+  // ── Cleanup blob URLs when messages change ────────────────────────────────
+  const prevBlobUrlsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const currentBlobUrls = new Set<string>();
+    messages.forEach(m => {
+      if (m.imagePreview?.startsWith("blob:")) {
+        currentBlobUrls.add(m.imagePreview);
+      }
+    });
+    // Revoke URLs that are no longer in the message list
+    prevBlobUrlsRef.current.forEach(url => {
+      if (!currentBlobUrls.has(url)) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    prevBlobUrlsRef.current = currentBlobUrls;
+  }, [messages]);
+
+  // ── Patch the last assistant message by id ───────────────────────────────
+  const patchMsg = useCallback((patch: Partial<Message>) => {
+    const id = currentIdRef.current;
+    setMessages(prev => {
+      const idx = prev.findIndex(m => m.id === id);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...patch };
+      return next;
+    });
+  }, [setMessages]);
+
+  // ── Core submit logic with retry ────────────────────────────────────────────
+  const doSubmit = useCallback(async (submittedQuery: string, submittedFile: File | null) => {
+    if (loadingRef.current) return;
+    if (!submittedQuery.trim() && !submittedFile) return;
+
+    const uid   = `u-${Date.now()}`;
+    const aid   = `a-${Date.now() + 1}`;
+    currentIdRef.current  = aid;
+    contentAccRef.current = "";
+    loadingRef.current    = true;
+    retryCountRef.current = 0;
+
+    const preview = submittedFile ? URL.createObjectURL(submittedFile) : undefined;
+
+    // Add user + placeholder assistant messages
+    setMessages(prev => [
       ...prev,
-      { role: "user", content: sentQuery, imagePreview: previewUrl },
+      { id: uid, role: "user", content: submittedQuery, imagePreview: preview, streaming: false, timestamp: new Date() },
+      { id: aid, role: "assistant", content: "", streaming: true, timestamp: new Date() },
     ]);
 
-    // Reset inputs
+    setLoading(true);
     setQuery("");
     setFile(null);
-    setLoading(true);
+    setConnectionStatus("checking");
 
-    // Append streaming placeholder — streaming:true hides partial JSON
-    setMessages((prev) => [
-      ...prev,
-      { role: "assistant", content: "", streaming: true },
-    ]);
+    // All API calls go through Next.js server-side proxy routes.
+    // The proxy injects the API key server-side — never exposed to client.
 
-    try {
-      const formData = new FormData();
-      if (sentQuery.trim()) formData.append("query", sentQuery);
-      formData.append("session_id", "default_react_session");
-      if (uploadRef) formData.append("image", uploadRef);
+    // Retry loop
+    while (retryCountRef.current <= MAX_RETRIES) {
+      try {
+        const form = new FormData();
+        form.append("query", submittedQuery || "Analyze this image");
+        form.append("session_id", sessionIdRef.current);
+        form.append("model", selectedModel);
+        if (submittedFile) form.append("image", submittedFile);
 
-      const baseUrl =
-        process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-      const apiKey =
-        process.env.NEXT_PUBLIC_FARM360_API_KEY || "secure-secret-key-1234";
+        const endpoint = submittedFile
+          ? "/api/analyze-image"
+          : "/api/chat-stream";
 
-      const endpoint = uploadRef
-        ? `${baseUrl}/analyze_image`
-        : `${baseUrl}/chat_stream`;
+        const res = await fetchWithTimeout(endpoint, {
+          method: "POST",
+          body: form,
+        }, REQUEST_TIMEOUT_MS);
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "X-API-Key": apiKey },
-        body: formData,
-      });
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(`Server ${res.status}: ${err}`);
+        }
+        if (!res.body) throw new Error("No stream from server.");
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errText}`);
-      }
+        setConnectionStatus("online");
 
-      if (!response.body) throw new Error("No readable stream available.");
+        // ── Image endpoint: JSON response ──────────────────────────────────
+        if (submittedFile) {
+          const json = await res.json();
+          const data = json.response ?? json;
+          let text: string;
+          if (typeof data === "string") {
+            text = data;
+          } else {
+            // Convert structured JSON to readable markdown
+            const parts: string[] = [];
+            if (data.summary) parts.push(`**${data.summary}**\n`);
+            if (data.analysis) parts.push(data.analysis + "\n");
+            if (data.recommendations?.length) {
+              parts.push("## Recommendations");
+              data.recommendations.forEach((r: string) => parts.push(`- ${r}`));
+              parts.push("");
+            }
+            if (data.action_steps?.length) {
+              parts.push("## Action Steps");
+              data.action_steps.forEach((s: string, i: number) => parts.push(`${i + 1}. ${s}`));
+            }
+            if (data.missing_data_warning) parts.push(`\n> ⚠️ ${data.missing_data_warning}`);
+            text = parts.join("\n");
+          }
+          patchMsg({ content: text, streaming: false });
+          setLoading(false);
+          loadingRef.current = false;
+          return;
+        }
 
-      // ── Image path: backend returns structured JSON directly ──────────────
-      if (uploadRef) {
-        const resp = await response.json();
-        // resp is already the structured dict (or potentially { response: ... })
-        const structured = resp.response ?? resp;
-        const content =
-          typeof structured === "string"
-            ? structured
-            : JSON.stringify(structured);
-        // streaming: false so ChatCanvas will parse and render the structured card
-        updateLastMsg({ content, streaming: false });
+        // ── SSE text/event-stream: update state on EVERY token ────────────
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buf = "";
+        let streamError = false;
+
+        try {
+          outer: while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buf += decoder.decode(value, { stream: true });
+
+            let boundary: number;
+            while ((boundary = buf.indexOf("\n\n")) !== -1) {
+              const raw = buf.slice(0, boundary).trim();
+              buf = buf.slice(boundary + 2);
+
+              if (!raw.startsWith("data: ")) continue;
+              const data = raw.slice(6).replace(/\\n/g, "\n");
+
+              if (data === "[DONE]") {
+                break outer;
+              }
+
+              if (data.startsWith("[ERROR]")) {
+                streamError = true;
+                patchMsg({
+                  content: contentAccRef.current + `\n\n⚠️ ${data.slice(7).trim()}`,
+                  streaming: false,
+                });
+                break outer;
+              }
+
+              // ✅ Real-time token append
+              contentAccRef.current += data;
+              patchMsg({ content: contentAccRef.current, streaming: true });
+            }
+          }
+        } finally {
+          // Ensure reader is always closed
+          try { await reader.cancel(); } catch {}
+        }
+
+        // Ensure final state is non-streaming
+        if (!streamError) {
+          patchMsg({ streaming: false });
+        }
         setLoading(false);
+        loadingRef.current = false;
+        return; // Success - exit the function
+
+      } catch (err: unknown) {
+        const error = err as Error;
+        console.error(`[Farm360] Attempt ${retryCountRef.current + 1} failed:`, error.message);
+
+        // Check if it's an abort (timeout) or network error
+        const isTimeout = error.name === "AbortError";
+        const isNetworkError = error.message?.includes("fetch") || error.message?.includes("network");
+
+        if ((isTimeout || isNetworkError) && retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current++;
+          setConnectionStatus("checking");
+          patchMsg({
+            content: `⏳ Connection issue. Retrying... (${retryCountRef.current}/${MAX_RETRIES})`,
+            streaming: true,
+          });
+          await delay(RETRY_DELAY_MS * retryCountRef.current); // Exponential backoff
+          continue; // Retry
+        }
+
+        // Final failure
+        setConnectionStatus("offline");
+        const errorType = isTimeout ? "Request timed out" : isNetworkError ? "Network error" : "Error";
+        patchMsg({
+          content: `⚠️ **${errorType}**\n\n${error.message}\n\n**Troubleshooting:**\n- Check if backend is running on port 8000\n- Verify your internet connection\n- Try again in a few seconds`,
+          streaming: false,
+        });
+        setLoading(false);
+        loadingRef.current = false;
         return;
       }
-
-      // ── SSE Streaming path ────────────────────────────────────────────────
-      // The backend streams the JSON pretty-printed line by line.
-      // We accumulate ALL lines in a ref and only commit to React state when
-      // [DONE] arrives — this prevents partial JSON from ever being rendered.
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-      contentAccRef.current = "";
-
-      outer: while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        let boundary: number;
-
-        while ((boundary = buffer.indexOf("\n\n")) !== -1) {
-          const message = buffer.slice(0, boundary).trim();
-          buffer = buffer.slice(boundary + 2);
-
-          if (message.startsWith("data: ")) {
-            const data = message.slice(6).replace(/\\n/g, "\n");
-
-            if (data === "[DONE]") {
-              reader.cancel();
-              // ✅ Commit the full accumulated JSON — now parseable
-              updateLastMsg({
-                content: contentAccRef.current,
-                streaming: false,
-              });
-              break outer;
-            }
-
-            if (data.startsWith("[ERROR]")) {
-              updateLastMsg({ content: `⚠️ ${data}`, streaming: false });
-              break outer;
-            }
-
-            // Accumulate silently — DO NOT update React state here
-            contentAccRef.current += data;
-          }
-        }
-      }
-    } catch (e: any) {
-      console.error("Farm360 fetch error:", e);
-      updateLastMsg({
-        content: `⚠️ System Error: ${e.message}`,
-        streaming: false,
-      });
-    } finally {
-      setLoading(false);
     }
+  }, [patchMsg, selectedModel, setMessages]);
+
+  // ── Form submit ──────────────────────────────────────────────────────────
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    doSubmit(query, file);
   };
 
-  return (
-    <div className="absolute bottom-0 w-full p-4 bg-gradient-to-t from-gray-900 via-gray-900/95 to-transparent">
+  // ── Expose sendQuery to parent (for suggestion chips) ────────────────────
+  useImperativeHandle(ref, () => ({
+    sendQuery: (q: string) => doSubmit(q, null),
+  }));
 
-      {/* File attachment preview */}
+  return (
+    <div
+      className="absolute bottom-0 inset-x-0 px-4 pb-4 pt-2"
+      style={{ background: "linear-gradient(to top, var(--bg) 70%, transparent)" }}
+    >
+      {/* File preview badge */}
       {file && (
-        <div className="max-w-3xl mx-auto mb-2 px-3 py-2 bg-gray-800 rounded-lg inline-flex items-center gap-2 border border-gray-700">
-          <span className="text-xs text-gray-300">📎 {file.name}</span>
-          <button
-            onClick={() => setFile(null)}
-            className="text-red-400 hover:text-red-300 font-bold ml-1"
+        <div className="max-w-3xl mx-auto mb-2">
+          <span
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
+            style={{ background: "var(--surface-2)", border: "1px solid var(--border-2)", color: "#aaa" }}
           >
-            ✕
-          </button>
+            <span>📎</span>
+            <span className="truncate max-w-[180px]">{file.name}</span>
+            <button onClick={() => setFile(null)} className="ml-1 hover:text-red-400 transition-colors">
+              <X size={13} />
+            </button>
+          </span>
         </div>
       )}
 
       {/* Input form */}
       <form
         onSubmit={handleSubmit}
-        className="max-w-3xl mx-auto flex items-center bg-gray-800 rounded-2xl px-3 py-2.5 border border-gray-700 shadow-2xl focus-within:border-green-700/70 transition-colors"
+        className="chat-form max-w-3xl mx-auto flex items-end gap-2 px-3 py-2.5 rounded-2xl"
+        style={{ background: "var(--surface-2)", border: "1px solid var(--border-2)" }}
       >
         {/* Hidden file input */}
         <input
@@ -185,57 +330,70 @@ export default function ChatInput({
           accept="image/*"
           className="hidden"
           ref={fileInputRef}
-          onChange={(e) => {
-            if (e.target.files?.[0]) setFile(e.target.files[0]);
-          }}
+          onChange={e => { if (e.target.files?.[0]) setFile(e.target.files[0]); }}
         />
 
-        {/* Attach button */}
+        {/* Attach */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          title="Attach crop image"
-          className="p-1.5 text-gray-400 hover:text-green-400 rounded-full hover:bg-gray-700 transition-colors shrink-0"
+          title="Attach crop image for disease diagnosis"
+          disabled={loading}
+          className="shrink-0 mb-0.5 p-1.5 rounded-lg transition-all hover:bg-white/8 disabled:opacity-30"
+          style={{ color: "#666" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "#4ade80")}
+          onMouseLeave={e => (e.currentTarget.style.color = "#666")}
         >
-          <Paperclip size={19} />
+          <Paperclip size={17} />
         </button>
 
-        {/* Text area */}
+        {/* Textarea */}
         <textarea
+          ref={textareaRef}
           rows={1}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              handleSubmit(e);
+              handleSubmit();
             }
           }}
-          placeholder={
-            loading
-              ? "Farm360 Expert is analyzing…"
-              : "Ask about crops, diseases, irrigation…"
-          }
+          placeholder={loading ? "Farm360 AI is thinking…" : "Ask about crops, diseases, soil, irrigation, livestock…"}
           disabled={loading}
-          className="flex-1 bg-transparent border-none focus:outline-none text-white text-sm px-3 py-1 resize-none max-h-40 overflow-y-auto placeholder-gray-500"
+          className="flex-1 bg-transparent border-none outline-none text-sm px-2 py-1 resize-none placeholder-[#444] leading-relaxed"
+          style={{ color: "#e8e8e8", minHeight: "24px", maxHeight: "168px" }}
         />
 
-        {/* Send button */}
+        {/* Send */}
         <button
           type="submit"
           disabled={loading || (!query.trim() && !file)}
-          title="Send"
-          className="p-2 ml-1 bg-green-600 hover:bg-green-500 disabled:opacity-30 rounded-full text-white transition-all shrink-0"
+          title="Send (Enter)"
+          className="shrink-0 mb-0.5 p-2.5 rounded-xl text-white transition-all disabled:opacity-25 disabled:cursor-not-allowed flex items-center justify-center"
+          style={{ background: loading || (!query.trim() && !file) ? "#1e3a1e" : "var(--accent)" }}
         >
-          <Send size={17} fill="currentColor" />
+          {loading
+            ? <Loader2 size={16} className="animate-spin" />
+            : <Send size={15} />
+          }
         </button>
       </form>
 
-      <p className="text-center text-[11px] text-gray-600 mt-2 hidden md:block">
-        Farm360 AI · Verify crop and veterinary recommendations with local experts.
+      <p className="text-center mt-2 text-[10px] hidden md:flex items-center justify-center gap-2" style={{ color: "#333" }}>
+        <span className="flex items-center gap-1">
+          {connectionStatus === "online" && <Wifi size={10} style={{ color: "#4ade80" }} />}
+          {connectionStatus === "offline" && <WifiOff size={10} style={{ color: "#ef4444" }} />}
+          {connectionStatus === "checking" && <Loader2 size={10} className="animate-spin" style={{ color: "#facc15" }} />}
+          <span style={{ color: connectionStatus === "online" ? "#4ade80" : connectionStatus === "offline" ? "#ef4444" : "#facc15" }}>
+            {connectionStatus === "online" ? "Connected" : connectionStatus === "offline" ? "Disconnected" : "Connecting..."}
+          </span>
+        </span>
+        <span>·</span>
+        <span>Farm360 AI · Verify critical advice with an agronomist</span>
       </p>
-
-      <div ref={bottomRef} />
     </div>
   );
-}
+});
+
+export default ChatInput;

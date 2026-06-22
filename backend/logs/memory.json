@@ -192,14 +192,99 @@
             {
                 "role": "assistant",
                 "content": "### Summary\nThank you for reaching out to Farm360. Based on your query, I'll provide insights using our local ML models.\n\n### Analysis\n\ud83d\udcc8 I specialize in crop yield forecasting using advanced regression models.\n\n### Recommendations\n- Provide specific details: crop type, location, acreage\n- Share recent weather patterns or irrigation data\n- Mention fertilizer and pesticide usage history\n\n### Next Steps\n\nTake these practical actions:\n1. Identify your primary farming objective (income vs subsistence)\n2. Assess available resources: land area, water access, labor\n3. Research high-value crops suitable for your climate zone\n4. Connect with local Krishi Vigyan Kendra for expert advice\n5. Start small-scale trials before full implementation\n"
+            },
+            {
+                "role": "user",
+                "content": "What are the most effective organic and chemical pest control methods for cotton crops?"
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Recommended Crops for the Kharif Season\n\nBased on typical Indian agroclimatic conditions, here are the best options:\n\n| Crop | Best Variety | Avg Yield | Duration |\n|------|-------------|-----------|----------|\n| Rice | IR-64, Basmati 370 | 5-7 t/ha | 130-140 days |\n| Maize | DKC-9144 | 8-10 t/ha | 90-100 days |\n| Soybean | JS-335 | 2.5-3 t/ha | 95-100 days |\n| Cotton | Bt-Bollgard II | 20-25 q/ha | 180-200 days |\n\n## Key Pre-Sowing Actions\n\n1. **Soil test** -- send soil to the nearest KVK lab for NPK + micronutrient analysis\n2. **Seed treatment** -- treat seeds with Thiram 75 WS @ 3 g/kg seed before sowing\n3. **Basal fertilizer** -- apply FYM at 10 t/ha two weeks before transplanting\n4. **Check local mandi prices** -- align variety selection to current market demand\n"
+            },
+            {
+                "role": "user",
+                "content": "What is the complete fertilizer and nutrient schedule for growing tomatoes from seedling to harvest?"
+            },
+            {
+                "role": "assistant",
+                "content": "Namaste! Growing tomatoes is a highly rewarding venture, but because they are \"heavy feeders,\" success depends entirely on your timing and the balance of nutrients. Since you are managing a diverse farm, I recommend a precision-based approach to ensure you don't waste money on excess fertilizer while preventing nutrient deficiencies that lead to blossom end rot or stunted growth.\n\nBased on standard agronomic practices for high-yielding tomato cultivation, here is your complete nutritional roadmap.\n\n## Phase 1: Soil Preparation & Basal Application\nBefore your seedlings even touch the soil, you must build the \"foundation.\" This is done during land preparation (ploughing).\n\n*   **Organic Foundation:** Apply **20-25 tonnes/ha** of well-decomposed **Farmyard Manure (FYM)** or Vermicompost. This improves soil structure and microbial activity.\n*   **Chemical Basal Dose:** For a standard 1-hectare plot, apply the following at the time of transplanting:\n    *   **Nitrogen (N):** 100 kg/ha (split into 3 parts)\n    *   **Phosphorus (P\u2082O\u2085):** 60 kg/ha (applied fully at basal)\n    *   **Potassium (K\u2082O):** 60 kg/ha (applied fully at basal)\n    *   **Micronutrients:** Apply **Boron (B)** at **1-2 kg/ha** to prevent fruit cracking later.\n\n## Phase 2: The Growth & Development Schedule\nOnce the plants are established, you must transition from \"leaf building\" to \"fruit building.\"\n\n| Growth Stage | Timing (Days After Transplanting) | Nutrient Focus | Recommended Dosage/Method |\n| :--- | :--- | :--- | :--- |\n| **Vegetative Stage** | **15\u201325 DAP** | Nitrogen & Phosphorus | Apply **25 kg/ha N** via top-dressing or fertigation. |\n| **Flowering Stage** | **35\u201345 DAP** | Phosphorus & Boron | Foliar spray: **0.5% Borax** or **Boron (2g/L**) to ensure fruit set. |\n| **Fruit Set Stage** | **50\u201360 DAP** | Potassium & Calcium | Apply **30 kg/ha K\u2082O**. Essential to prevent Blossom End Rot. |\n| **Fruit Ripening** | **70+ DAP** | High Potassium | Increase **Potassium** levels to improve color and Brix (sweetness). |\n\n## Phase 3: Detailed Nutrient Management Strategies\n\n### 1. The \"Calcium Criticality\" (Preventing Blossom End Rot)\nThe most common failure in tomato farming is **Blossom End Rot** (black, sunken spots on the bottom of the fruit). This is often not just a lack of Calcium, but a lack of *available* Calcium due to irregular watering.\n*   **Action:** Ensure consistent soil moisture.\n*   **Supplement:** Use **Calcium Nitrate [Ca(NO\u2083)\u2082]** at a rate of **5 kg per 100 liters of water** via fertigation or foliar spray during the flowering stage.\n\n### 2. Organic \"Booster\" Methods\nIf you want to reduce chemical dependency and utilize your **12 dairy cattle**, use these methods:\n*   **Jeevamrut:** Apply **200 liters/ha** through irrigation every 15 days to boost soil microbes.\n*   **Liquid Seaweed Extract:** Spray **3 ml/litre** during the flowering stage to increase hormone production and fruit retention.\n\n### 3. Foliar Nutrition for Rapid Recovery\nIf you notice yellowing leaves (chlorosis) or slow growth, don't wait for the next soil application. Use a foliar spray:\n*   **N-P-K 19:19:19:** Use **5 g/litre** of water for general vigor.\n*   **N-P-K 0:52:34:** Use **5 g/litre** specifically when the first flower buds appear to boost root and flower strength.\n\n## Summary Checklist for Success\n\n1.  **Soil Test First:** Before applying the basal dose, ensure your soil pH is between **6.0 and 7.0**.\n2.  **Water Management:** Never let the soil go from bone-dry to soaking wet; this \"stress-rebound\" cycle causes fruit to crack.\n3.  **Mulching:** Use organic mulch (straw or dried grass) to keep moisture levels stable and prevent nutrient leaching.\n4.  **Monitor the Leaves:** \n    *   **Dark Green/Curled:** Too much Nitrogen.\n    *   **Pale Yellow:** Nitrogen deficiency.\n    *   **Purple Tint:** Phosphorus deficiency."
+            },
+            {
+                "role": "user",
+                "content": "Hello"
+            },
+            {
+                "role": "assistant",
+                "content": "Namaste! I am **Farm360 AI**, your dedicated agricultural advisor. \n\nI see from your profile that you are managing a significant **100-acre operation in Assam**, primarily focused on **Rice**, with **Mustard** and **Jute** as secondary crops, and a **dairy herd of 12 cattle**. This is a diverse and productive setup!\n\nHow can I assist you with your farm today? I am ready to provide expert guidance on:\n\n*   **Rice Management:** Pest control (like Stem Borer), weed management, or optimizing NPK application for your specific Assam soil types.\n*   **Secondary Crops:** Maximizing yields for your Mustard or Jute crops.\n*   **Livestock & Dairy:** Nutrition for your 12 cattle, milk yield optimization, or waste management (converting manure to organic fertilizer for your fields).\n*   **Soil & Nutrition:** Detailed fertilizer schedules or soil health improvement strategies.\n*   **Economics:** Market trends or cost-benefit analysis for your seasonal crops.\n\n**Please tell me what is on your mind\u2014whether it's a specific crop problem, a question about machinery, or planning for the next sowing season.**"
+            },
+            {
+                "role": "user",
+                "content": "Hello"
+            },
+            {
+                "role": "assistant",
+                "content": "Namaste! I am here and ready to assist you.\n\nSince I have your farm profile on file\u2014**100 acres in Assam** with **Rice, Mustard, and Jute**, plus your **12 dairy cattle**\u2014I can provide very specific advice tailored to your local climate and crop rotation.\n\n**How can I help you move your farm forward today?** \n\nFor example, we could discuss:\n\n*   **Rice (Kharif/Boro):** Are you seeing any signs of **Stem Borer** or **Leaf Folder**? Do you need a precise NPK schedule for your current growth stage?\n*   **Mustard/Jute:** Are you planning your next sowing cycle? I can help with seed treatment protocols and optimal spacing.\n*   **Livestock:** Would you like a **Total Mixed Ration (TMR)** formula for your 12 cattle to increase milk fat content using local Assam fodder?\n*   **Integrated Farming:** Would you like to learn how to better convert your **cattle manure** into high-quality **vermicompost** to reduce your chemical fertilizer costs for the Rice crop?\n\n**Please tell me what is happening in your fields or with your livestock, and I will provide a detailed, actionable plan.**"
+            },
+            {
+                "role": "user",
+                "content": "Hello"
+            },
+            {
+                "role": "assistant",
+                "content": "Namaste! It seems we are having a little trouble getting started. I am ready and waiting to serve as your **Farm360 AI** advisor.\n\nTo make our conversation productive, please tell me what is currently happening on your **100-acre farm in Assam**. Since I already know your primary crops are **Rice, Mustard, and Jute**, and you manage **12 dairy cattle**, you don't need to explain your background\u2014just jump straight to your problem.\n\n**Here are 3 ways you can use me right now:**\n\n### 1. Troubleshooting a Problem (The \"Emergency\" Mode)\nIf you see something wrong in your fields, describe it to me. \n*   *Example:* \"My **Rice** leaves are turning yellow at the tips, what should I do?\" \n*   *Example:* \"My **Mustard** crop has small white spots on the leaves. Is it a fungus?\"\n\n### 2. Planning for the Season (The \"Strategy\" Mode)\nIf you are preparing for the next sowing or harvesting period.\n*   *Example:* \"I am planning to plant **Jute** next month. What is the best seed rate and spacing for high fiber yield?\"\n*   *Example:* \"How much **Urea** and **DAP** should I budget for my 100 acres of Rice this season?\"\n\n### 3. Maximizing Livestock (The \"Dairy\" Mode)\nIf you want to improve your milk production or cattle health.\n*   *Example:* \"I want to increase the milk yield of my **12 cattle**. Can you suggest a feeding schedule using local Assam fodder?\"\n*   *Example:* \"How can I use the manure from my cattle to create high-quality compost for my **Mustard** fields?\"\n\n**I am standing by. Please type your question or describe your current farming challenge below.**"
+            },
+            {
+                "role": "user",
+                "content": "Hello"
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Agricultural Best Practices for Indian Farming\n\n**Soil Health**\n- Test NPK and micronutrients every 2 years at your nearest KVK (Krishi Vigyan Kendra)\n- Target organic matter > 0.8%; add FYM or vermicompost annually\n- Maintain pH between 6.0-7.0 for most crops\n\n**Water Management**\n- Adopt drip or sprinkler irrigation to reduce water consumption by 30-40%\n- Apply mulching to reduce soil moisture evaporation by up to 25%\n\n**Integrated Pest Management**\n- Use pheromone traps for early pest monitoring\n- Prefer neem-based biopesticides (Azadirachtin 0.03% EC) before chemical intervention\n\n**Market Access**\n- Register on **e-NAM portal** for price discovery across 1,000+ mandis\n- Join an FPO (Farmer Producer Organisation) for collective bargaining power\n\n> To get AI-powered personalized advice, ensure your OpenRouter API key is active in the `.env` file.\n"
+            },
+            {
+                "role": "user",
+                "content": "Hello, what crops are good for June?"
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Recommended Crops for the Kharif Season\n\nBased on typical Indian agroclimatic conditions, here are the best options:\n\n| Crop | Best Variety | Avg Yield | Duration |\n|------|-------------|-----------|----------|\n| Rice | IR-64, Basmati 370 | 5-7 t/ha | 130-140 days |\n| Maize | DKC-9144 | 8-10 t/ha | 90-100 days |\n| Soybean | JS-335 | 2.5-3 t/ha | 95-100 days |\n| Cotton | Bt-Bollgard II | 20-25 q/ha | 180-200 days |\n\n## Key Pre-Sowing Actions\n\n1. **Soil test** -- send soil to the nearest KVK lab for NPK + micronutrient analysis\n2. **Seed treatment** -- treat seeds with Thiram 75 WS @ 3 g/kg seed before sowing\n3. **Basal fertilizer** -- apply FYM at 10 t/ha two weeks before transplanting\n4. **Check local mandi prices** -- align variety selection to current market demand\n"
+            },
+            {
+                "role": "user",
+                "content": "My rice crop leaves are turning yellow at the tips. What could be wrong and how do I fix it?"
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Recommended Crops for the Kharif Season\n\nBased on typical Indian agroclimatic conditions, here are the best options:\n\n| Crop | Best Variety | Avg Yield | Duration |\n|------|-------------|-----------|----------|\n| Rice | IR-64, Basmati 370 | 5-7 t/ha | 130-140 days |\n| Maize | DKC-9144 | 8-10 t/ha | 90-100 days |\n| Soybean | JS-335 | 2.5-3 t/ha | 95-100 days |\n| Cotton | Bt-Bollgard II | 20-25 q/ha | 180-200 days |\n\n## Key Pre-Sowing Actions\n\n1. **Soil test** -- send soil to the nearest KVK lab for NPK + micronutrient analysis\n2. **Seed treatment** -- treat seeds with Thiram 75 WS @ 3 g/kg seed before sowing\n3. **Basal fertilizer** -- apply FYM at 10 t/ha two weeks before transplanting\n4. **Check local mandi prices** -- align variety selection to current market demand\n"
+            },
+            {
+                "role": "user",
+                "content": "What are the most effective organic and chemical pest control methods for cotton crops?"
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Recommended Crops for the Kharif Season\n\nBased on typical Indian agroclimatic conditions, here are the best options:\n\n| Crop | Best Variety | Avg Yield | Duration |\n|------|-------------|-----------|----------|\n| Rice | IR-64, Basmati 370 | 5-7 t/ha | 130-140 days |\n| Maize | DKC-9144 | 8-10 t/ha | 90-100 days |\n| Soybean | JS-335 | 2.5-3 t/ha | 95-100 days |\n| Cotton | Bt-Bollgard II | 20-25 q/ha | 180-200 days |\n\n## Key Pre-Sowing Actions\n\n1. **Soil test** -- send soil to the nearest KVK lab for NPK + micronutrient analysis\n2. **Seed treatment** -- treat seeds with Thiram 75 WS @ 3 g/kg seed before sowing\n3. **Basal fertilizer** -- apply FYM at 10 t/ha two weeks before transplanting\n4. **Check local mandi prices** -- align variety selection to current market demand\n"
+            },
+            {
+                "role": "user",
+                "content": "What is the best irrigation schedule and method for growing rice in a 5-acre field?"
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Recommended Crops for the Kharif Season\n\nBased on typical Indian agroclimatic conditions, here are the best options:\n\n| Crop | Best Variety | Avg Yield | Duration |\n|------|-------------|-----------|----------|\n| Rice | IR-64, Basmati 370 | 5-7 t/ha | 130-140 days |\n| Maize | DKC-9144 | 8-10 t/ha | 90-100 days |\n| Soybean | JS-335 | 2.5-3 t/ha | 95-100 days |\n| Cotton | Bt-Bollgard II | 20-25 q/ha | 180-200 days |\n\n## Key Pre-Sowing Actions\n\n1. **Soil test** -- send soil to the nearest KVK lab for NPK + micronutrient analysis\n2. **Seed treatment** -- treat seeds with Thiram 75 WS @ 3 g/kg seed before sowing\n3. **Basal fertilizer** -- apply FYM at 10 t/ha two weeks before transplanting\n4. **Check local mandi prices** -- align variety selection to current market demand\n"
             }
         ]
     },
     "profiles": {
         "farmer_1": {
-            "location": "Assam",
+            "location": "Assam, India",
             "farm_size": 100,
-            "primary_crop": "Rice"
+            "primary_crop": "Rice",
+            "secondary_crops": [
+                "Mustard",
+                "Jute"
+            ],
+            "livestock": "Mixed dairy herd (12 cattle)"
         }
     }
 }
