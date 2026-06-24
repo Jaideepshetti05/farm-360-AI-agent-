@@ -272,6 +272,46 @@
             {
                 "role": "assistant",
                 "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Recommended Crops for the Kharif Season\n\nBased on typical Indian agroclimatic conditions, here are the best options:\n\n| Crop | Best Variety | Avg Yield | Duration |\n|------|-------------|-----------|----------|\n| Rice | IR-64, Basmati 370 | 5-7 t/ha | 130-140 days |\n| Maize | DKC-9144 | 8-10 t/ha | 90-100 days |\n| Soybean | JS-335 | 2.5-3 t/ha | 95-100 days |\n| Cotton | Bt-Bollgard II | 20-25 q/ha | 180-200 days |\n\n## Key Pre-Sowing Actions\n\n1. **Soil test** -- send soil to the nearest KVK lab for NPK + micronutrient analysis\n2. **Seed treatment** -- treat seeds with Thiram 75 WS @ 3 g/kg seed before sowing\n3. **Basal fertilizer** -- apply FYM at 10 t/ha two weeks before transplanting\n4. **Check local mandi prices** -- align variety selection to current market demand\n"
+            },
+            {
+                "role": "user",
+                "content": "hii"
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Agricultural Best Practices for Indian Farming\n\n**Soil Health**\n- Test NPK and micronutrients every 2 years at your nearest KVK (Krishi Vigyan Kendra)\n- Target organic matter > 0.8%; add FYM or vermicompost annually\n- Maintain pH between 6.0-7.0 for most crops\n\n**Water Management**\n- Adopt drip or sprinkler irrigation to reduce water consumption by 30-40%\n- Apply mulching to reduce soil moisture evaporation by up to 25%\n\n**Integrated Pest Management**\n- Use pheromone traps for early pest monitoring\n- Prefer neem-based biopesticides (Azadirachtin 0.03% EC) before chemical intervention\n\n**Market Access**\n- Register on **e-NAM portal** for price discovery across 1,000+ mandis\n- Join an FPO (Farmer Producer Organisation) for collective bargaining power\n\n> To get AI-powered personalized advice, ensure your OpenRouter API key is active in the `.env` file.\n"
+            },
+            {
+                "role": "user",
+                "content": "sugegest me something good crop"
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Recommended Crops for the Kharif Season\n\nBased on typical Indian agroclimatic conditions, here are the best options:\n\n| Crop | Best Variety | Avg Yield | Duration |\n|------|-------------|-----------|----------|\n| Rice | IR-64, Basmati 370 | 5-7 t/ha | 130-140 days |\n| Maize | DKC-9144 | 8-10 t/ha | 90-100 days |\n| Soybean | JS-335 | 2.5-3 t/ha | 95-100 days |\n| Cotton | Bt-Bollgard II | 20-25 q/ha | 180-200 days |\n\n## Key Pre-Sowing Actions\n\n1. **Soil test** -- send soil to the nearest KVK lab for NPK + micronutrient analysis\n2. **Seed treatment** -- treat seeds with Thiram 75 WS @ 3 g/kg seed before sowing\n3. **Basal fertilizer** -- apply FYM at 10 t/ha two weeks before transplanting\n4. **Check local mandi prices** -- align variety selection to current market demand\n"
+            },
+            {
+                "role": "user",
+                "content": "what "
+            },
+            {
+                "role": "assistant",
+                "content": "**Farm360 AI** -- offline advisory mode (LLM unavailable, showing knowledge-base response)\n\n---\n\n## Agricultural Best Practices for Indian Farming\n\n**Soil Health**\n- Test NPK and micronutrients every 2 years at your nearest KVK (Krishi Vigyan Kendra)\n- Target organic matter > 0.8%; add FYM or vermicompost annually\n- Maintain pH between 6.0-7.0 for most crops\n\n**Water Management**\n- Adopt drip or sprinkler irrigation to reduce water consumption by 30-40%\n- Apply mulching to reduce soil moisture evaporation by up to 25%\n\n**Integrated Pest Management**\n- Use pheromone traps for early pest monitoring\n- Prefer neem-based biopesticides (Azadirachtin 0.03% EC) before chemical intervention\n\n**Market Access**\n- Register on **e-NAM portal** for price discovery across 1,000+ mandis\n- Join an FPO (Farmer Producer Organisation) for collective bargaining power\n\n> To get AI-powered personalized advice, ensure your OpenRouter API key is active in the `.env` file.\n"
+            },
+            {
+                "role": "user",
+                "content": "What are the best crops to plant in June in Punjab, India?"
+            },
+            {
+                "role": "assistant",
+                "content": "\u26a0\ufe0f **LLM API Request Failed**\n\nThe AI provider returned an error: `Connection error.`\n\nPlease check your API keys or rate limits."
+            },
+            {
+                "role": "user",
+                "content": "My rice crop leaves are turning yellow at the tips. What could be wrong and how do I fix it?"
+            },
+            {
+                "role": "assistant",
+                "content": "\u26a0\ufe0f **LLM API Request Failed**\n\nThe AI provider returned an error: `Error code: 404 - [{'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1main, or is not supported for generateContent. Call ModelService.ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}]`\n\nPlease check your API keys or rate limits."
             }
         ]
     },

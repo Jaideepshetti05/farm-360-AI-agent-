@@ -7,6 +7,7 @@ from loguru import logger
 class Settings(BaseSettings):
     # API Keys - loaded from environment variables
     openrouter_api_key: str | None = None  # Will be loaded from OPENROUTER_API_KEY env var
+    google_api_key: str | None = None # Will be loaded from GOOGLE_API_KEY env var
     farm360_api_key: str | None = None  # Will be loaded from FARM360_API_KEY env var
     openweather_api_key: str | None = None  # Will be loaded from OPENWEATHER_API_KEY env var
     

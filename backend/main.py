@@ -65,25 +65,25 @@ class Farm360Agent:
         self._init_llm()
 
     def _init_llm(self):
-        """Initialize the OpenRouter LLM client."""
+        """Initialize the LLM client using Gemini via OpenAI SDK."""
         if self.use_mock_llm:
             logger.info("Mock LLM mode — using deterministic fallback responses.")
             return
 
-        if not settings.openrouter_api_key:
-            logger.info("No OPENROUTER_API_KEY — using fallback responses.")
+        if not settings.google_api_key:
+            logger.info("No GOOGLE_API_KEY — using fallback responses.")
             return
 
         try:
             self.client = OpenAI(
-                base_url="https://openrouter.ai/api/v1",
-                api_key=settings.openrouter_api_key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=settings.google_api_key,
                 timeout=15.0,
             )
             self.has_llm = True
-            logger.success("OpenRouter LLM configured successfully.")
+            logger.success("Gemini LLM configured successfully.")
         except Exception as e:
-            logger.warning(f"OpenRouter setup failed: {e}")
+            logger.warning(f"Gemini setup failed: {e}")
 
     # -----------------------------------------------------------------------
     # ML context builder
@@ -148,8 +148,8 @@ class Farm360Agent:
         Generator that yields text tokens one by one from the LLM stream.
         This powers the real-time ChatGPT-style token streaming.
         """
-        target_model = model or "google/gemma-4-26b-a4b-it:free"
-        messages     = self._build_messages(query, image_path, model)
+        target_model = "gemini-1.5-flash"  # Override frontend model to Gemini
+        messages     = self._build_messages(query, image_path, target_model)
 
         logger.info(f"[STREAM] model={target_model} query={query[:60]!r}")
 
@@ -173,13 +173,10 @@ class Farm360Agent:
                     yield delta
 
         except Exception as e:
-            logger.error(f"LLM streaming error: {e}")
-            fallback = self._fallback_prose(query)
-            # Yield fallback in chunks
-            chunk_size = 20
-            for i in range(0, len(fallback), chunk_size):
-                yield fallback[i:i+chunk_size]
-            full_response = fallback
+            logger.exception(f"LLM streaming error: {e}")
+            error_message = f"⚠️ **LLM API Request Failed**\n\nThe AI provider returned an error: `{str(e)}`\n\nPlease check your API keys or rate limits."
+            yield error_message
+            full_response = error_message
         finally:
             if full_response:
                 self.memory.add_message(self.session_id, "user", query)
@@ -190,7 +187,7 @@ class Farm360Agent:
     # -----------------------------------------------------------------------
     def chat_blocking(self, query: str, image_path: str = None, model: str = None) -> str:
         if not self.has_llm:
-            return self._fallback_prose(query)
+            return "⚠️ LLM is not configured. Please add a valid API key."
         return "".join(self.stream_query_prose(query, image_path, model))
 
     # -----------------------------------------------------------------------

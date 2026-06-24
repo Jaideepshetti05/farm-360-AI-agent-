@@ -193,7 +193,7 @@ async def chat_stream_endpoint(
             if agent is None:
                 fallback_text = "Service is warming up. Please retry in a few seconds."
             else:
-                fallback_text = agent._fallback_prose(query)
+                fallback_text = "⚠️ **LLM is not configured.** Please add a valid API key."
 
             chunk_size = 20
             for i in range(0, len(fallback_text), chunk_size):
