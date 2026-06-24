@@ -17,6 +17,7 @@ from memory.session import MemoryManager
 from feedback.feedback_logger import FeedbackSystem
 from agent_core.explainability import format_model_prediction
 from backend.config import settings
+from backend.provider_manager import provider_manager
 
 
 # ---------------------------------------------------------------------------
@@ -60,30 +61,28 @@ class Farm360Agent:
         self.user_id      = "farmer_1"
         self.use_mock_llm = use_mock_llm
         self.has_llm      = False
-        self.client       = None
+        self.client       = None   # Deprecated — kept for compat; use key_manager
 
         self._init_llm()
 
     def _init_llm(self):
-        """Initialize the LLM client using Gemini via OpenAI SDK."""
+        """Check key_manager has at least one key across any provider."""
         if self.use_mock_llm:
             logger.info("Mock LLM mode — using deterministic fallback responses.")
             return
 
-        if not settings.google_api_key:
-            logger.info("No GOOGLE_API_KEY — using fallback responses.")
+        if not provider_manager.has_any_key:
+            logger.warning(
+                "No API keys configured across any provider (Gemini / OpenRouter / OpenAI). "
+                "Add keys to .env as GOOGLE_API_KEY_1…5, OPENROUTER_API_KEY_1…5, or OPENAI_API_KEY_1…3."
+            )
             return
 
-        try:
-            self.client = OpenAI(
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                api_key=settings.google_api_key,
-                timeout=15.0,
-            )
-            self.has_llm = True
-            logger.success("Gemini LLM configured successfully.")
-        except Exception as e:
-            logger.warning(f"Gemini setup failed: {e}")
+        self.has_llm = True
+        logger.success(
+            f"[KeyManager] Multi-provider LLM ready. "
+            f"Pools: {provider_manager.status()}"
+        )
 
     # -----------------------------------------------------------------------
     # ML context builder
@@ -146,41 +145,20 @@ class Farm360Agent:
     def stream_query_prose(self, query: str, image_path: str = None, model: str = None):
         """
         Generator that yields text tokens one by one from the LLM stream.
-        This powers the real-time ChatGPT-style token streaming.
+        Auto-rotates across Gemini / OpenRouter / OpenAI keys on failure.
         """
-        target_model = "gemini-1.5-flash"  # Override frontend model to Gemini
-        messages     = self._build_messages(query, image_path, target_model)
-
-        logger.info(f"[STREAM] model={target_model} query={query[:60]!r}")
-
+        messages = self._build_messages(query, image_path, model)
         full_response = ""
-        try:
-            stream = self.client.chat.completions.create(
-                model=target_model,
-                messages=messages,
-                stream=True,
-                temperature=0.7,
-                max_tokens=2048,
-                extra_headers={
-                    "HTTP-Referer": "https://farm360.app",
-                    "X-Title": "Farm360 AI",
-                },
-            )
-            for chunk in stream:
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    full_response += delta
-                    yield delta
 
-        except Exception as e:
-            logger.exception(f"LLM streaming error: {e}")
-            error_message = f"⚠️ **LLM API Request Failed**\n\nThe AI provider returned an error: `{str(e)}`\n\nPlease check your API keys or rate limits."
-            yield error_message
-            full_response = error_message
-        finally:
-            if full_response:
-                self.memory.add_message(self.session_id, "user", query)
-                self.memory.add_message(self.session_id, "assistant", full_response)
+        # Delegate entirely to the new unified stream_completion in key_manager
+        # (It handles rotation, logging, and error tracking automatically)
+        for token in provider_manager.stream_completion(messages):
+            full_response += token
+            yield token
+
+        if full_response and not full_response.startswith("⚠️"):
+            self.memory.add_message(self.session_id, "user", query)
+            self.memory.add_message(self.session_id, "assistant", full_response)
 
     # -----------------------------------------------------------------------
     # Blocking chat (for /chat endpoint)

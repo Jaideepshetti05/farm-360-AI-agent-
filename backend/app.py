@@ -11,6 +11,13 @@ import asyncio
 import threading
 import queue as q_module
 import os
+import sys
+
+# Add root directory to path for absolute imports
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
 import uuid
 import secrets
 import shutil
@@ -19,6 +26,7 @@ from loguru import logger
 
 from backend.main import Farm360Agent
 from backend.config import settings
+from backend.provider_manager import provider_manager
 
 # ── Rate limiting ─────────────────────────────────────────────────────────────
 from collections import defaultdict
@@ -149,15 +157,14 @@ def sanitize_filename(original: str) -> str:
 # ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/")
 def health_check():
-    """Health check with model availability status."""
+    """Health check with model availability and key pool status."""
     if agent is None:
         return {"status": "error", "message": "Agent not initialized"}
-    
-    # Check model availability
+
     model_status = {}
     if hasattr(agent, 'api') and agent.api is not None:
-        model_status["crop_model"] = agent.api.crop_model is not None
-        model_status["dairy_model"] = agent.api.dairy_model is not None
+        model_status["crop_model"]   = agent.api.crop_model is not None
+        model_status["dairy_model"]  = agent.api.dairy_model is not None
         model_status["vision_model"] = agent.api.vision_model is not None
         model_status["animal_model"] = agent.api.animal_model is not None
 
@@ -165,9 +172,34 @@ def health_check():
         "status": "ok",
         "message": "Farm360 AI v3 — ready",
         "llm_active": agent.has_llm if agent else False,
-        "model": "openrouter/multi-model",
         "models_loaded": model_status,
+        "key_pools": {
+            provider: len(pool)
+            for provider, pool in provider_manager._pools.items()
+        },
     }
+
+
+@app.get("/keys/status")
+def keys_status(api_key: str = Depends(verify_api_key)):
+    """
+    Live view of API key pool health.
+    Shows availability and cooldown state per key (redacts the actual key values).
+    """
+    return {
+        "status": "ok",
+        "pools": provider_manager.status(),
+        "has_any_key": provider_manager.has_any_key,
+    }
+
+
+@app.get("/api/health/providers")
+def health_providers(api_key: str = Depends(verify_api_key)):
+    """
+    Health check for API providers.
+    Returns the active provider, model, and healthy status.
+    """
+    return provider_manager.health_status()
 
 
 # ── SSE streaming chat ────────────────────────────────────────────────────────
