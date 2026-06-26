@@ -28,6 +28,20 @@ from backend.main import Farm360Agent
 from backend.config import settings
 from backend.provider_manager import provider_manager
 
+# ── Vision service routers ────────────────────────────────────────────────────
+try:
+    from backend.vision_service.routes.crop_disease import router as _crop_disease_router
+    from backend.vision_service.routes.breed import router as _breed_router
+    from backend.vision_service.routes.weed import router as _weed_router
+    from backend.vision_service.routes.detect import router as _detect_router
+    from backend.vision_service.routes.plant_id import router as _plant_id_router
+    from backend.vision_service.routes.fruit import router as _fruit_router
+    from backend.vision_service.registry import model_registry as _model_registry
+    _VISION_OK = True
+except ImportError as _ve:
+    logger.warning(f"Vision service not available: {_ve}")
+    _VISION_OK = False
+
 # ── Rate limiting ─────────────────────────────────────────────────────────────
 from collections import defaultdict
 import time
@@ -91,10 +105,20 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Farm360 AI API",
-    version="3.0",
-    description="Intelligent agricultural advisory — powered by OpenRouter LLMs",
+    version="3.1",
+    description="Intelligent agricultural advisory + Computer Vision — Farm360 AI",
     lifespan=lifespan,
 )
+
+# ── Register vision routers (no extra API key needed — uses app middleware) ────
+if _VISION_OK:
+    app.include_router(_crop_disease_router)
+    app.include_router(_breed_router)
+    app.include_router(_weed_router)
+    app.include_router(_detect_router)
+    app.include_router(_plant_id_router)
+    app.include_router(_fruit_router)
+    logger.info("Vision service routes registered: /vision/{crop-disease,breed,weed,detect,plant-id,fruit-grade,fruit-detect}")
 
 # More restrictive CORS for production
 _CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
@@ -170,13 +194,25 @@ def health_check():
 
     return {
         "status": "ok",
-        "message": "Farm360 AI v3 — ready",
+        "message": "Farm360 AI v3.1 — ready",
         "llm_active": agent.has_llm if agent else False,
         "models_loaded": model_status,
+        "vision_service": _VISION_OK,
         "key_pools": {
             provider: len(pool)
             for provider, pool in provider_manager._pools.items()
         },
+    }
+
+
+@app.get("/vision/models")
+def vision_models_status():
+    """List all registered vision models with their version and load status."""
+    if not _VISION_OK:
+        return {"status": "unavailable", "message": "Vision service not initialised"}
+    return {
+        "status": "ok",
+        "models": _model_registry.status(),
     }
 
 

@@ -1,0 +1,101 @@
+{
+  "crop_disease": {
+    "latest": "v1.0",
+    "versions": {
+      "v1.0": {
+        "arch": "resnet18",
+        "type": "classification",
+        "description": "ResNet18 trained on 17-class crop disease dataset (Corn/Potato/Rice/Sugarcane/Wheat)",
+        "classes_file": "machine_learning/model_registry/classes/crop_disease_v1.json",
+        "weights": "machine_learning/crop_vision/models/crop_disease_model.pth",
+        "num_classes": 17,
+        "input_size": 224,
+        "val_accuracy": null,
+        "trained_on": "Crop Diseases dataset — 17 classes",
+        "notes": "Initial production model. Upgrade path: v2.0 EfficientNet-B3 42-class"
+      }
+    }
+  },
+  "breed": {
+    "latest": "v1.0",
+    "versions": {
+      "v1.0": {
+        "arch": "efficientnet_b3",
+        "type": "classification",
+        "description": "EfficientNet-B3 for Indian bovine breed identification (41 classes)",
+        "classes_file": "machine_learning/model_registry/classes/breed_v1.json",
+        "weights": "machine_learning/model_registry/models/breed/v1.0/weights.pth",
+        "num_classes": 41,
+        "input_size": 224,
+        "val_accuracy": null,
+        "trained_on": "Indian_bovine_breeds dataset — 41 breeds",
+        "notes": "Pending training. LLM advisory active in the meantime."
+      }
+    }
+  },
+  "weed": {
+    "latest": "v1.0",
+    "versions": {
+      "v1.0": {
+        "arch": "yolov11n",
+        "type": "detection",
+        "description": "YOLOv11n weed detector (Phase 3)",
+        "classes_file": "machine_learning/model_registry/classes/weed_v1.json",
+        "weights": "machine_learning/model_registry/models/weed/v1.0/weights.pt",
+        "num_classes": 9,
+        "input_size": 640,
+        "val_accuracy": null,
+        "trained_on": "DeepWeeds dataset — 9 weed species",
+        "notes": "Pending dataset acquisition and training."
+      }
+    }
+  },
+  "fruit_grade": {
+    "latest": "v1.0",
+    "versions": {
+      "v1.0": {
+        "arch": "efficientnet_b3",
+        "type": "classification",
+        "description": "EfficientNet-B3 fruit quality grader (Phase 3)",
+        "classes_file": "machine_learning/model_registry/classes/fruit_grade_v1.json",
+        "weights": "machine_learning/model_registry/models/fruit_grade/v1.0/weights.pth",
+        "num_classes": 3,
+        "input_size": 224,
+        "val_accuracy": null,
+        "notes": "Pending training."
+      }
+    }
+  },
+  "plant_id": {
+    "latest": "v1.0",
+    "versions": {
+      "v1.0": {
+        "arch": "convnext_small",
+        "type": "classification",
+        "description": "ConvNeXt-Small plant identifier (Phase 3)",
+        "classes_file": "machine_learning/model_registry/classes/plant_id_v1.json",
+        "weights": "machine_learning/model_registry/models/plant_id/v1.0/weights.pth",
+        "num_classes": 200,
+        "input_size": 224,
+        "val_accuracy": null,
+        "notes": "Pending dataset acquisition and training."
+      }
+    }
+  },
+  "detect": {
+    "latest": "v1.0",
+    "versions": {
+      "v1.0": {
+        "arch": "yolov11s",
+        "type": "detection",
+        "description": "YOLOv11s general farm object detector (Phase 2)",
+        "classes_file": "machine_learning/model_registry/classes/detect_v1.json",
+        "weights": "machine_learning/model_registry/models/detect/v1.0/weights.pt",
+        "num_classes": 5,
+        "input_size": 640,
+        "val_accuracy": null,
+        "notes": "Pending XML annotation conversion and training."
+      }
+    }
+  }
+}
