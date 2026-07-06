@@ -11,13 +11,13 @@ sys.path.append(BASE_DIR)
 
 from api_gateway.model_wrapper import Farm360API
 from media_pipeline.image_processor import MediaPipeline
-from decision_engine.logic import DecisionEngine
 from external_apis.weather import WeatherClient
 from memory.session import MemoryManager
 from feedback.feedback_logger import FeedbackSystem
 from agent_core.explainability import format_model_prediction
 from backend.config import settings
 from backend.provider_manager import provider_manager
+
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +52,6 @@ class Farm360Agent:
         logger.info("Initializing Farm360 Intelligence Modules...")
         self.api      = Farm360API(model_base_path=model_base_path)
         self.media    = MediaPipeline()
-        self.decision = DecisionEngine()
         self.weather  = WeatherClient()
         self.memory   = MemoryManager()
         self.feedback = FeedbackSystem()
@@ -121,23 +120,21 @@ class Farm360Agent:
     # Message builder
     # -----------------------------------------------------------------------
     def _build_messages(self, query: str, image_path: str = None, model: str = None) -> list:
+        from backend.services.context_builder import PromptContextService
+
         profile    = self.memory.get_user_profile(self.user_id)
         ml_context = self._collect_ml_context(query, image_path)
+        history    = self.memory.get_chat_history(self.session_id, max_turns=None)
+        summary    = getattr(self.memory, "get_summary", lambda sid: None)(self.session_id)
 
-        system = SYSTEM_PROMPT_TEMPLATE.format(
-            profile=json.dumps(profile, ensure_ascii=False),
+        return PromptContextService.build_prompt_context(
+            system_prompt_template="general_assistant",
+            user_profile=profile,
             ml_context=ml_context,
+            recent_history=history,
+            summary_text=summary,
+            max_context_tokens=4096
         )
-
-        history  = self.memory.get_chat_history(self.session_id)
-        messages = [{"role": "system", "content": system}]
-        for m in history[-6:]:
-            messages.append({
-                "role": "user" if m["role"] == "user" else "assistant",
-                "content": m["content"],
-            })
-        messages.append({"role": "user", "content": query})
-        return messages
 
     # -----------------------------------------------------------------------
     # STREAMING prose (generator -- yields text tokens)

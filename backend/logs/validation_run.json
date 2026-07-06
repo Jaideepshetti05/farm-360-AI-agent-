@@ -1,0 +1,417 @@
+{
+  "vision_health": {
+    "status_code": 200,
+    "response": {
+      "status": "ok",
+      "vision_service": true,
+      "device": "CPU",
+      "uptime_seconds": 72.59,
+      "memory_usage": {
+        "rss_mb": 840.24,
+        "vms_mb": 1318.95,
+        "percent": 5.28
+      },
+      "registered_models": [
+        "crop_disease",
+        "breed",
+        "weed",
+        "fruit_grade",
+        "plant_id",
+        "detect"
+      ],
+      "loaded_models": [],
+      "models_detail": {
+        "crop_disease": {
+          "latest": "v1.0",
+          "loaded": false,
+          "versions": [
+            "v1.0"
+          ],
+          "arch": "resnet18"
+        },
+        "breed": {
+          "latest": "v1.0",
+          "loaded": false,
+          "versions": [
+            "v1.0"
+          ],
+          "arch": "efficientnet_b3"
+        },
+        "weed": {
+          "latest": "v1.0",
+          "loaded": false,
+          "versions": [
+            "v1.0"
+          ],
+          "arch": "yolov11n"
+        },
+        "fruit_grade": {
+          "latest": "v1.0",
+          "loaded": false,
+          "versions": [
+            "v1.0"
+          ],
+          "arch": "efficientnet_b3"
+        },
+        "plant_id": {
+          "latest": "v1.0",
+          "loaded": false,
+          "versions": [
+            "v1.0"
+          ],
+          "arch": "convnext_small"
+        },
+        "detect": {
+          "latest": "v1.0",
+          "loaded": false,
+          "versions": [
+            "v1.0"
+          ],
+          "arch": "yolov11s"
+        }
+      },
+      "aggregate_metrics": {
+        "total_requests": 0,
+        "error_count": 0,
+        "average_latency_ms": 0.0
+      },
+      "metrics_detail": {}
+    }
+  },
+  "crop_disease_validation": [
+    {
+      "image": "Image_1.jpg",
+      "expected": "Corn Common Rust",
+      "status_code": 200,
+      "latency_ms": 9964.243900001748,
+      "response": {
+        "task": "crop_disease",
+        "success": true,
+        "error": null,
+        "predictions": [
+          {
+            "label": "Wheat___Brown_Rust",
+            "display_name": "Wheat Brown Rust",
+            "confidence": 0.9585,
+            "rank": 1
+          }
+        ],
+        "bounding_boxes": null,
+        "segmentation_mask": null,
+        "explanation": {
+          "text": "Namaste Kisan Bhai!\n\nOur Farm360 AI has detected **Wheat Brown Rust** (also known as Leaf Rust) on your wheat crop. This is a common fungal disease that causes small, orange-brown, powdery spots on the leaves, usually appearing first on the upper surface. If not treated quickly, it can spread rapidly and significantly reduce your wheat yield.\n\nHere's what you need to do:\n\n### 1. Immediate Treatment Steps\n\nYou need to spray a fungicide as soon as possible.\n\n*   **Product:** **Syngenta Tilt** (contains Propiconazole 25% EC)\n*   **Dosage:** Mix **500 ml** of Syngenta Tilt in **200-300 liters of water** per hectare.\n*   **Application:** Spray this mixture evenly over your wheat crop. Make sure to cover all leaves properly.\n*   **Estimated Cost:** A 500 ml bottle of Syngenta Tilt costs approximately **\u20b9450 - \u20b9550**. (This quantity is enough for 1 hectare).\n*   **Safety:** Always wear gloves and a mask while mixing and spraying. Wash your hands thoroughly after application.\n*   **Important:** Apply the fungicide immediately after noticing the rust. If the disease is severe or rains wash away the spray, you might need to repeat the application after 10-15 days, using the same dosage.\n\n**Alternative Option (if Syngenta Tilt is not available):**\n\n*   **Product:** **Bayer Folicur** (contains Tebuconazole 25.9% EC)\n*   **Dosage:** Mix **625 ml** of Bayer Folicur in **200-300 liters of water** per hectare.\n*   **Estimated Cost:** A 625 ml bottle of Bayer Folicur costs approximately **\u20b9750 - \u20b9850**.\n\n### 2. Prevention Strategy for the Next Season\n\nTo avoid Brown Rust in your next wheat crop:\n\n*   **Choose Resistant Varieties:** Ask your local agricultural university or Krishi Vigyan Kendra (KVK) for the latest rust-resistant wheat varieties suitable for your area.\n*   **Crop Rotation:** Do not grow wheat in the same field year after year. Rotate with other crops like mustard, gram, or maize to break the disease cycle.\n*   **Field Sanitation:** After harvest, remove and destroy all wheat crop residue. Do not leave it in the field, as it can harbor disease spores.\n*   **Balanced Fertilization:** Use fertilizers in recommended amounts. Too much nitrogen can make plants more susceptible to rust.\n*   **Proper Spacing:** Plant wheat at recommended spacing to ensure good air circulation, which helps reduce humidity and disease spread.\n\n### 3. When to Call an Extension Officer\n\nYou should contact your local agricultural extension officer or KVK expert if:\n\n*   The disease continues to spread rapidly even after you have applied the fungicide as advised.\n*   You are unsure about the correct application method or dosage of the fungicide.\n*   You notice any other unusual symptoms on your crop that you cannot identify.\n*   You need help identifying the most suitable rust-resistant wheat varieties for your specific farm.",
+          "language": "en",
+          "recommendations": [
+            "**Product:** **Syngenta Tilt** (contains Propiconazole 25% EC)",
+            "**Dosage:** Mix **500 ml** of Syngenta Tilt in **200-300 liters of water** per hectare.",
+            "**Application:** Spray this mixture evenly over your wheat crop. Make sure to cover all leaves properly.",
+            "**Estimated Cost:** A 500 ml bottle of Syngenta Tilt costs approximately **\u20b9450 - \u20b9550**. (This quantity is enough for 1 hectare).",
+            "**Safety:** Always wear gloves and a mask while mixing and spraying. Wash your hands thoroughly after application.",
+            "**Important:** Apply the fungicide immediately after noticing the rust. If the disease is severe or rains wash away the spray, you might need to repeat the application after 10-15 days, using the same dosage."
+          ],
+          "urgency": "Medium",
+          "treatment_products": []
+        },
+        "metadata": {
+          "width": 600,
+          "height": 400,
+          "channels": 3,
+          "processing_time_ms": 237.0,
+          "model_version": "v1.0",
+          "confidence_threshold": 0.1
+        },
+        "extra": {
+          "arch": "resnet18",
+          "model_available": true,
+          "entropy": 0.236,
+          "raw_confidence": 0.9954,
+          "calibrated_confidence": 0.9585,
+          "crop_type": "Wheat",
+          "disease_name": "Brown Rust",
+          "is_healthy": false,
+          "quick_treatment": "Propiconazole 25 EC @ 0.5 mL/L",
+          "causative_agent": "Fungal (Puccinia / Fusarium)",
+          "action_window_days": 7
+        }
+      }
+    },
+    {
+      "image": "Yellow_rust1141.jpg",
+      "expected": "Wheat Yellow Rust",
+      "status_code": 200,
+      "latency_ms": 9490.912199980812,
+      "response": {
+        "task": "crop_disease",
+        "success": true,
+        "error": null,
+        "predictions": [
+          {
+            "label": "Wheat___Brown_Rust",
+            "display_name": "Wheat Brown Rust",
+            "confidence": 0.5033,
+            "rank": 1
+          },
+          {
+            "label": "Wheat___Yellow_Rust",
+            "display_name": "Wheat Yellow Rust",
+            "confidence": 0.4141,
+            "rank": 2
+          }
+        ],
+        "bounding_boxes": null,
+        "segmentation_mask": null,
+        "explanation": {
+          "text": "Namaste Kisan Bhai,\n\nBased on the photo, your wheat crop shows signs of both **Brown Rust** and **Yellow Rust**. These are common fungal diseases that can harm your wheat yield if not treated quickly. It's good that you detected them early!\n\nHere are the steps you should take:\n\n### 1. Immediate Treatment Steps\n\nYou need to spray a fungicide quickly to stop the rust from spreading.\n\n*   **Product:** **Propiconazole 25% EC** (available under brand names like 'Tilt' by Syngenta or 'Bumper' by Dhanuka).\n*   **Dosage:** Mix **500 ml** of Propiconazole 25% EC in **200-300 litres of water** for one hectare of land.\n*   **Application:** Spray this mixture evenly on all your wheat plants, making sure to cover both sides of the leaves.\n*   **Cost:** A 500 ml bottle of Propiconazole 25% EC costs around **\u20b9900**. This is enough for one hectare.\n*   **Follow-up:** Check your field after 10-15 days. If the rust is still spreading or new spots appear, you may need to repeat the spray.\n\n### 2. Prevention Strategy for the Next Season\n\nTo avoid rust problems next year, follow these steps:\n\n*   **Choose Resistant Varieties:** Ask your local agriculture office or seed dealer for wheat varieties that are known to be resistant to rust diseases in your area. This is the most important step.\n*   **Timely Sowing:** Sow your wheat crop at the recommended time for your region. Late sowing can make crops more vulnerable to rust.\n*   **Crop Rotation:** Do not grow wheat in the same field year after year. Rotate with other crops like mustard, gram, or maize. This helps break the disease cycle in the soil.\n*   **Field Sanitation:** After harvest, remove all wheat crop residue from your field. Do not leave old stalks or leaves as they can harbor disease spores for the next season.\n*   **Balanced Fertilizers:** Use fertilizers in the right amount. Too much nitrogen can make plants more susceptible to rust. Get your soil tested and follow recommendations.\n\n### 3. When to Call an Extension Officer\n\nYou should contact your local Krishi Vigyan Kendra (KVK) or Agriculture Extension Officer if:\n\n*   **The rust disease spreads very fast** even after you have sprayed the fungicide.\n*   **You are unsure** about the exact disease or how to apply the treatment correctly.\n*   **You notice any other new or unusual diseases** on your crop that you cannot identify.\n\nAct fast to protect your crop!",
+          "language": "en",
+          "recommendations": [
+            "**Product:** **Propiconazole 25% EC** (available under brand names like 'Tilt' by Syngenta or 'Bumper' by Dhanuka).",
+            "**Dosage:** Mix **500 ml** of Propiconazole 25% EC in **200-300 litres of water** for one hectare of land.",
+            "**Application:** Spray this mixture evenly on all your wheat plants, making sure to cover both sides of the leaves.",
+            "**Cost:** A 500 ml bottle of Propiconazole 25% EC costs around **\u20b9900**. This is enough for one hectare.",
+            "**Follow-up:** Check your field after 10-15 days. If the rust is still spreading or new spots appear, you may need to repeat the spray.",
+            "**Choose Resistant Varieties:** Ask your local agriculture office or seed dealer for wheat varieties that are known to be resistant to rust diseases in your area. This is the most important step."
+          ],
+          "urgency": "Medium",
+          "treatment_products": []
+        },
+        "metadata": {
+          "width": 228,
+          "height": 123,
+          "channels": 3,
+          "processing_time_ms": 31.4,
+          "model_version": "v1.0",
+          "confidence_threshold": 0.1
+        },
+        "extra": {
+          "arch": "resnet18",
+          "model_available": true,
+          "entropy": 1.0052,
+          "raw_confidence": 0.5579,
+          "calibrated_confidence": 0.5033,
+          "crop_type": "Wheat",
+          "disease_name": "Brown Rust",
+          "is_healthy": false,
+          "quick_treatment": "Propiconazole 25 EC @ 0.5 mL/L",
+          "causative_agent": "Fungal (Puccinia / Fusarium)",
+          "action_window_days": 7
+        }
+      }
+    }
+  ],
+  "bovine_breed_validation": {
+    "image": "Gir_1.JPG",
+    "status_code": 200,
+    "latency_ms": 23.268100019777194,
+    "response": {
+      "task": "breed",
+      "success": true,
+      "error": null,
+      "predictions": [],
+      "bounding_boxes": null,
+      "segmentation_mask": null,
+      "explanation": null,
+      "metadata": {
+        "width": 220,
+        "height": 147,
+        "channels": 3,
+        "processing_time_ms": 6.7,
+        "model_version": "unavailable",
+        "confidence_threshold": 0.1
+      },
+      "extra": {
+        "model_available": false
+      }
+    }
+  },
+  "error_handling": [
+    {
+      "test_case": "dummy.pdf",
+      "status_code": 415,
+      "response": {
+        "detail": "Unsupported file type '.pdf'. Allowed: ['.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff', '.webp']"
+      }
+    },
+    {
+      "test_case": "dummy.zip",
+      "status_code": 415,
+      "response": {
+        "detail": "Unsupported file type '.zip'. Allowed: ['.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff', '.webp']"
+      }
+    },
+    {
+      "test_case": "dummy.txt",
+      "status_code": 415,
+      "response": {
+        "detail": "Unsupported file type '.txt'. Allowed: ['.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff', '.webp']"
+      }
+    },
+    {
+      "test_case": "corrupt.jpg",
+      "status_code": 422,
+      "response": {
+        "detail": "The uploaded file could not be read as a valid image: cannot identify image file <_io.BytesIO object at 0x0000028442DEA390>"
+      }
+    },
+    {
+      "test_case": "empty.jpg",
+      "status_code": 400,
+      "response": {
+        "detail": "Uploaded file is empty."
+      }
+    },
+    {
+      "test_case": "large.jpg (>10MB)",
+      "status_code": 413,
+      "response": {
+        "detail": "File too large (11 MB). Maximum is 10 MB."
+      }
+    }
+  ],
+  "regression": {
+    "get_root": {
+      "status_code": 200,
+      "response": {
+        "status": "ok",
+        "message": "Farm360 AI v3.1 \u2014 ready",
+        "llm_active": true,
+        "models_loaded": {
+          "crop_model": true,
+          "dairy_model": true,
+          "vision_model": true,
+          "animal_model": true
+        },
+        "vision_service": true,
+        "key_pools": {
+          "gemini": 5,
+          "openrouter": 5,
+          "openai": 0
+        }
+      }
+    },
+    "provider_health": {
+      "status_code": 200,
+      "response": {
+        "provider": "gemini",
+        "activeKey": "\u2026foPcNT_g",
+        "healthy": true,
+        "model": "gemini-2.5-flash",
+        "lastError": null
+      }
+    },
+    "keys_status": {
+      "status_code": 200,
+      "response": {
+        "status": "ok",
+        "pools": {
+          "gemini": [
+            {
+              "key_suffix": "\u2026LrC2uiMw",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            },
+            {
+              "key_suffix": "\u2026ngFAe2xA",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            },
+            {
+              "key_suffix": "\u2026foPcNT_g",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            },
+            {
+              "key_suffix": "\u2026BzDEnv2A",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            },
+            {
+              "key_suffix": "\u2026dYSroQOw",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            }
+          ],
+          "openrouter": [
+            {
+              "key_suffix": "\u20264b5c60b3",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            },
+            {
+              "key_suffix": "\u2026c42367f9",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            },
+            {
+              "key_suffix": "\u20260001b29c",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            },
+            {
+              "key_suffix": "\u202691fca451",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            },
+            {
+              "key_suffix": "\u20262f0241a2",
+              "available": true,
+              "failures": 0,
+              "permanently_disabled": false,
+              "cooldown_remaining_s": 0.0,
+              "last_error": null
+            }
+          ],
+          "openai": []
+        },
+        "has_any_key": true
+      }
+    },
+    "chat_stream": {
+      "status_code": 200,
+      "latency_ms": 11643.909899983555,
+      "preview": "Namaste Kisan Bhai!\n\nIt's completely understandable to be concerned when crop yields are lower than expected. Our recent analysis, based on environmen..."
+    }
+  },
+  "benchmark": {
+    "crop_inference_latencies_ms": [
+      39.79619999881834,
+      35.14829999767244,
+      88.88649998698384,
+      35.52790000685491,
+      35.62089998740703
+    ],
+    "crop_inference_avg_latency_ms": 46.99595999554731,
+    "chat_stream_latencies_ms": [
+      3685.408899997128,
+      3456.2033000111114,
+      11744.157199980691
+    ],
+    "chat_stream_avg_latency_ms": 6295.256466662977
+  }
+}

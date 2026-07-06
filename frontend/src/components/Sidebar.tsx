@@ -2,9 +2,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   Plus, Trash2, Sprout, MessageSquare,
-  Settings2, Zap, Bot, Pencil, Check, X, Search
+  Settings2, Zap, Bot, Pencil, Check, X, Search, FlaskConical,
 } from "lucide-react";
 import type { Conversation } from "@/app/page";
+import VisionUpload from "@/components/VisionUpload";
+import type { VisionResult, VisionTask } from "@/components/VisionUpload";
 
 const MODELS = [
   { id: "google/gemma-4-26b-a4b-it:free",             label: "Gemma 4 26B",   tag: "FREE", icon: "🟢" },
@@ -24,19 +26,24 @@ interface SidebarProps {
   onRenameConversation: (id: string, newTitle: string) => void;
   selectedModel: string;
   onModelChange: (id: string) => void;
+  onVisionResult?: (result: VisionResult, preview: string, task: VisionTask) => void;
 }
 
 export default function Sidebar({
   onNewChat, onClearChat, conversations, activeConversationId,
   onSelectConversation, onDeleteConversation, onRenameConversation,
-  selectedModel, onModelChange,
+  selectedModel, onModelChange, onVisionResult,
 }: SidebarProps) {
   const [showModels, setShowModels] = useState(false);
+  const [showVision, setShowVision] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
   const currentModel = MODELS.find(m => m.id === selectedModel) ?? MODELS[0];
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  const API_KEY = process.env.NEXT_PUBLIC_FARM360_API_KEY || "farm360-dev-key";
 
   // Focus rename input when editing
   useEffect(() => {
@@ -281,6 +288,30 @@ export default function Sidebar({
               </button>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* ── Vision Analyser Panel ── */}
+      <div className="px-3 pb-2 shrink-0">
+        <button
+          onClick={() => setShowVision(v => !v)}
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs transition-all mb-2"
+          style={{
+            color: showVision ? "#4ade80" : "#555",
+            border: `1px solid ${showVision ? "rgba(22,163,74,0.4)" : "var(--border)"}`,
+            background: showVision ? "rgba(22,163,74,0.06)" : "transparent",
+          }}
+        >
+          <FlaskConical size={13} />
+          Vision Analyser
+          <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: "rgba(22,163,74,0.1)", color: "#4ade80" }}>NEW</span>
+        </button>
+        {showVision && (
+          <VisionUpload
+            apiKey={API_KEY}
+            backendUrl={BACKEND_URL}
+            onResult={onVisionResult}
+          />
         )}
       </div>
 

@@ -153,10 +153,16 @@ def _extract_crop(label: str) -> str:
 
 
 def _extract_disease(label: str) -> str:
-    """'Rice___Leaf_Blast' → 'Leaf Blast'"""
+    """'Rice___Leaf_Blast' → 'Leaf Blast', 'Sugarcane_Red Rot' → 'Red Rot'"""
     parts = label.split("___")
     if len(parts) > 1:
         return parts[1].replace("_", " ")
+    
+    crops = ["Corn", "Potato", "Rice", "Sugarcane", "Wheat"]
+    for c in crops:
+        if label.startswith(c + "_"):
+            return label[len(c)+1:].replace("_", " ")
+            
     return label.replace("_", " ")
 
 

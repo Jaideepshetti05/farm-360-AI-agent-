@@ -1,0 +1,23 @@
+{
+  "dataset": "farm360_vision_benchmark",
+  "version": "1.0.0",
+  "test_cases": [
+    {
+      "id": "vision_disease_001",
+      "category": "vision_crop_disease",
+      "difficulty": "medium",
+      "description": "Leaf blast diagnosis explanation query.",
+      "inputs": {
+        "predictions": "Leaf Blast (92%)",
+        "profile": "Location: Assam, Rice farm",
+        "language": "English"
+      },
+      "expected_keywords": ["Blast", "Tricyclazole", "dosage", "prevention"],
+      "required_sections": ["Diagnosis", "treatment", "prevention"],
+      "evaluation_rules": {
+        "fail_under": 0.85,
+        "max_latency": 6.0
+      }
+    }
+  ]
+}

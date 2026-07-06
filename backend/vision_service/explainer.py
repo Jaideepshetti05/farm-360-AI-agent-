@@ -153,12 +153,23 @@ class VisionExplainer:
         predictions_str = self._format_predictions(predictions)
         profile_str = json.dumps(user_profile, ensure_ascii=False, indent=2)
 
-        prompt_template = _TASK_PROMPTS.get(task, _DEFAULT_PROMPT)
-        prompt = prompt_template.format(
-            predictions=predictions_str,
-            profile=profile_str,
-            language=language_name,
-        )
+        from backend.services.prompt_service import PromptService
+        prompt_name = f"vision_{task}"
+        variables = {
+            "predictions": predictions_str,
+            "profile": profile_str,
+            "language": language_name
+        }
+        try:
+            prompt, config = PromptService.render_and_validate(prompt_name, variables)
+        except Exception as e:
+            logger.warning(f"[Explainer] Failed to compile registry prompt {prompt_name}: {e}. Falling back.")
+            prompt_template = _TASK_PROMPTS.get(task, _DEFAULT_PROMPT)
+            prompt = prompt_template.format(
+                predictions=predictions_str,
+                profile=profile_str,
+                language=language_name,
+            )
 
         messages = [
             {

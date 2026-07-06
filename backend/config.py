@@ -11,6 +11,7 @@ load_dotenv(os.path.join(root_dir, ".env"))
 class Settings(BaseSettings):
     # ── Application key ────────────────────────────────────────────────────────
     farm360_api_key: str | None = None
+    farm360_encryption_key: str | None = None
 
     # ── Legacy single-key fields (kept for backward compatibility) ─────────────
     # These are read if only the old single-key env vars are set.

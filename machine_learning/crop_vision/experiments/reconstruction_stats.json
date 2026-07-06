@@ -1,0 +1,338 @@
+[
+  {
+    "class": "American Bollworm on Cotton",
+    "total": 51,
+    "train": 40,
+    "val": 5,
+    "test": 6,
+    "imbalance_ratio": 25.823529411764707
+  },
+  {
+    "class": "Anthracnose on Cotton",
+    "total": 29,
+    "train": 23,
+    "val": 2,
+    "test": 4,
+    "imbalance_ratio": 45.41379310344828
+  },
+  {
+    "class": "Armyworm",
+    "total": 276,
+    "train": 220,
+    "val": 27,
+    "test": 29,
+    "imbalance_ratio": 4.771739130434782
+  },
+  {
+    "class": "Bacterial Blight in Rice",
+    "total": 602,
+    "train": 481,
+    "val": 60,
+    "test": 61,
+    "imbalance_ratio": 2.1877076411960132
+  },
+  {
+    "class": "Bacterial Blight on Cotton",
+    "total": 599,
+    "train": 479,
+    "val": 59,
+    "test": 61,
+    "imbalance_ratio": 2.1986644407345577
+  },
+  {
+    "class": "Boll Rot on Cotton",
+    "total": 3,
+    "train": 1,
+    "val": 1,
+    "test": 1,
+    "imbalance_ratio": 439.0
+  },
+  {
+    "class": "Bollworm on Cotton",
+    "total": 10,
+    "train": 8,
+    "val": 1,
+    "test": 1,
+    "imbalance_ratio": 131.7
+  },
+  {
+    "class": "Brown Spot in Rice",
+    "total": 750,
+    "train": 600,
+    "val": 75,
+    "test": 75,
+    "imbalance_ratio": 1.756
+  },
+  {
+    "class": "Common Rust in Maize",
+    "total": 1317,
+    "train": 1053,
+    "val": 131,
+    "test": 133,
+    "imbalance_ratio": 1.0
+  },
+  {
+    "class": "Cotton Aphid",
+    "total": 231,
+    "train": 184,
+    "val": 23,
+    "test": 24,
+    "imbalance_ratio": 5.701298701298701
+  },
+  {
+    "class": "Cotton Mealybug",
+    "total": 86,
+    "train": 68,
+    "val": 8,
+    "test": 10,
+    "imbalance_ratio": 15.313953488372093
+  },
+  {
+    "class": "Cotton Whitefly",
+    "total": 48,
+    "train": 38,
+    "val": 4,
+    "test": 6,
+    "imbalance_ratio": 27.4375
+  },
+  {
+    "class": "Flag Smut in Wheat",
+    "total": 86,
+    "train": 68,
+    "val": 8,
+    "test": 10,
+    "imbalance_ratio": 15.313953488372093
+  },
+  {
+    "class": "Gray Leaf Spot in Maize",
+    "total": 574,
+    "train": 459,
+    "val": 57,
+    "test": 58,
+    "imbalance_ratio": 2.294425087108014
+  },
+  {
+    "class": "Healthy Cotton",
+    "total": 334,
+    "train": 267,
+    "val": 33,
+    "test": 34,
+    "imbalance_ratio": 3.94311377245509
+  },
+  {
+    "class": "Healthy Maize",
+    "total": 1177,
+    "train": 941,
+    "val": 117,
+    "test": 119,
+    "imbalance_ratio": 1.118946474086661
+  },
+  {
+    "class": "Healthy Sugarcane",
+    "total": 486,
+    "train": 388,
+    "val": 48,
+    "test": 50,
+    "imbalance_ratio": 2.7098765432098766
+  },
+  {
+    "class": "Healthy Wheat",
+    "total": 208,
+    "train": 166,
+    "val": 20,
+    "test": 22,
+    "imbalance_ratio": 6.331730769230769
+  },
+  {
+    "class": "Leaf Curl on Cotton",
+    "total": 294,
+    "train": 235,
+    "val": 29,
+    "test": 30,
+    "imbalance_ratio": 4.479591836734694
+  },
+  {
+    "class": "Leaf Smut in Rice",
+    "total": 52,
+    "train": 41,
+    "val": 5,
+    "test": 6,
+    "imbalance_ratio": 25.326923076923077
+  },
+  {
+    "class": "Maize Ear Rot",
+    "total": 115,
+    "train": 92,
+    "val": 11,
+    "test": 12,
+    "imbalance_ratio": 11.452173913043477
+  },
+  {
+    "class": "Maize Fall Armyworm",
+    "total": 106,
+    "train": 84,
+    "val": 10,
+    "test": 12,
+    "imbalance_ratio": 12.424528301886792
+  },
+  {
+    "class": "Maize Stem Borer",
+    "total": 95,
+    "train": 76,
+    "val": 9,
+    "test": 10,
+    "imbalance_ratio": 13.863157894736842
+  },
+  {
+    "class": "Mosaic on Sugarcane",
+    "total": 389,
+    "train": 311,
+    "val": 38,
+    "test": 40,
+    "imbalance_ratio": 3.38560411311054
+  },
+  {
+    "class": "Pink Bollworm on Cotton",
+    "total": 21,
+    "train": 16,
+    "val": 2,
+    "test": 3,
+    "imbalance_ratio": 62.714285714285715
+  },
+  {
+    "class": "Red Cotton Bug",
+    "total": 66,
+    "train": 52,
+    "val": 6,
+    "test": 8,
+    "imbalance_ratio": 19.954545454545453
+  },
+  {
+    "class": "Red Rot on Sugarcane",
+    "total": 573,
+    "train": 458,
+    "val": 57,
+    "test": 58,
+    "imbalance_ratio": 2.298429319371728
+  },
+  {
+    "class": "Red Rust on Sugarcane",
+    "total": 51,
+    "train": 40,
+    "val": 5,
+    "test": 6,
+    "imbalance_ratio": 25.823529411764707
+  },
+  {
+    "class": "Rice Blast",
+    "total": 523,
+    "train": 418,
+    "val": 52,
+    "test": 53,
+    "imbalance_ratio": 2.5181644359464626
+  },
+  {
+    "class": "Thrips on Cotton",
+    "total": 35,
+    "train": 28,
+    "val": 3,
+    "test": 4,
+    "imbalance_ratio": 37.628571428571426
+  },
+  {
+    "class": "Tungro in Rice",
+    "total": 1035,
+    "train": 828,
+    "val": 103,
+    "test": 104,
+    "imbalance_ratio": 1.272463768115942
+  },
+  {
+    "class": "Wheat Aphid",
+    "total": 189,
+    "train": 151,
+    "val": 18,
+    "test": 20,
+    "imbalance_ratio": 6.968253968253968
+  },
+  {
+    "class": "Wheat Black Rust",
+    "total": 157,
+    "train": 125,
+    "val": 15,
+    "test": 17,
+    "imbalance_ratio": 8.388535031847134
+  },
+  {
+    "class": "Wheat Brown Leaf Rust",
+    "total": 104,
+    "train": 83,
+    "val": 10,
+    "test": 11,
+    "imbalance_ratio": 12.663461538461538
+  },
+  {
+    "class": "Wheat Leaf Blight",
+    "total": 174,
+    "train": 139,
+    "val": 17,
+    "test": 18,
+    "imbalance_ratio": 7.568965517241379
+  },
+  {
+    "class": "Wheat Mite",
+    "total": 184,
+    "train": 147,
+    "val": 18,
+    "test": 19,
+    "imbalance_ratio": 7.157608695652174
+  },
+  {
+    "class": "Wheat Powdery Mildew",
+    "total": 202,
+    "train": 161,
+    "val": 20,
+    "test": 21,
+    "imbalance_ratio": 6.51980198019802
+  },
+  {
+    "class": "Wheat Scab",
+    "total": 103,
+    "train": 82,
+    "val": 10,
+    "test": 11,
+    "imbalance_ratio": 12.78640776699029
+  },
+  {
+    "class": "Wheat Stem Fly",
+    "total": 155,
+    "train": 124,
+    "val": 15,
+    "test": 16,
+    "imbalance_ratio": 8.496774193548386
+  },
+  {
+    "class": "Wheat Yellow Rust",
+    "total": 92,
+    "train": 73,
+    "val": 9,
+    "test": 10,
+    "imbalance_ratio": 14.315217391304348
+  },
+  {
+    "class": "Wilt on Cotton",
+    "total": 354,
+    "train": 283,
+    "val": 35,
+    "test": 36,
+    "imbalance_ratio": 3.7203389830508473
+  },
+  {
+    "class": "Yellow Rust on Sugarcane",
+    "total": 494,
+    "train": 395,
+    "val": 49,
+    "test": 50,
+    "imbalance_ratio": 2.665991902834008
+  }
+]

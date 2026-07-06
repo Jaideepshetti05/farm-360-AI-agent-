@@ -1,0 +1,16 @@
+{
+  "benchmark_date": "2026-06-26 21:26:39",
+  "samples_count": 13,
+  "v1_resnet18": {
+    "model_size_mb": 42.74354076385498,
+    "accuracy_percent": 7.69,
+    "avg_latency_ms": 17.63,
+    "memory_usage_mb": 9.16
+  },
+  "v2_efficientnetv2_s": {
+    "model_size_mb": 78.02347087860107,
+    "accuracy_percent": 0.0,
+    "avg_latency_ms": 56.03,
+    "memory_usage_mb": 5.41
+  }
+}

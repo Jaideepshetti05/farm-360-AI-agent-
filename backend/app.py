@@ -46,6 +46,8 @@ except ImportError as _ve:
 from collections import defaultdict
 import time
 
+START_TIME = time.time()
+
 class RateLimiter:
     """Simple in-memory sliding-window rate limiter."""
     def __init__(self, max_requests: int = 20, window_seconds: int = 60):
@@ -81,6 +83,18 @@ async def lifespan(app: FastAPI):
     logger.info("FastAPI starting — initialising Farm360 Agent…")
     os.makedirs(TEMP_DIR, exist_ok=True)
     global agent
+    
+    # Run database schema initialization
+    try:
+        from backend.core.database import engine
+        from backend.models.database import Base
+        logger.info("[Database] Validating database schema and generating tables if missing...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.success("[Database] Database schema initialized.")
+    except Exception as dbe:
+        logger.warning(f"[Database] Schema auto-generation failed: {dbe}. Memory fallback is enabled.")
+
     try:
         # Pass model_base_path from settings
         agent = Farm360Agent(
@@ -205,6 +219,25 @@ def health_check():
     }
 
 
+@app.get("/health/readiness")
+async def readiness_check():
+    """Exposes readiness metrics mapping to postgres, redis, and disk storage."""
+    from backend.services.health_service import HealthService
+    status = await HealthService.check_health()
+    if status["postgres"] == "unhealthy":
+        raise HTTPException(
+            status_code=503,
+            detail=status
+        )
+    return status
+
+
+@app.get("/health/liveness")
+def liveness_check():
+    """Exposes simple HTTP liveness probe."""
+    return {"status": "alive"}
+
+
 @app.get("/vision/models")
 def vision_models_status():
     """List all registered vision models with their version and load status."""
@@ -213,6 +246,72 @@ def vision_models_status():
     return {
         "status": "ok",
         "models": _model_registry.status(),
+    }
+
+
+@app.get("/vision/health")
+def vision_health_status():
+    """Detailed vision health status including loaded models and metrics."""
+    if not _VISION_OK:
+        return {"status": "unavailable", "message": "Vision service not initialised"}
+    
+    try:
+        from backend.vision_service.monitoring import metrics_manager
+        metrics = metrics_manager.get_metrics()
+    except Exception:
+        metrics = {}
+
+    total_requests = 0
+    total_errors = 0
+    total_latency_sum = 0.0
+    for task_metric in metrics.values():
+        total_requests += task_metric.get("request_count", 0)
+        total_errors += task_metric.get("error_count", 0)
+        total_latency_sum += task_metric.get("avg_latency_ms", 0.0) * task_metric.get("request_count", 0)
+    
+    avg_latency = round(total_latency_sum / total_requests, 2) if total_requests > 0 else 0.0
+
+    device = "unavailable"
+    if _VISION_OK:
+        try:
+            import torch
+            device = "GPU (cuda)" if torch.cuda.is_available() else "CPU"
+        except Exception:
+            pass
+
+    memory_usage = None
+    try:
+        import psutil
+        process = psutil.Process(os.getpid())
+        memory_usage = {
+            "rss_mb": round(process.memory_info().rss / (1024 * 1024), 2),
+            "vms_mb": round(process.memory_info().vms / (1024 * 1024), 2),
+            "percent": round(process.memory_percent(), 2)
+        }
+    except Exception:
+        pass
+
+    uptime = round(time.time() - START_TIME, 2)
+
+    models_status = _model_registry.status()
+    registered_models = list(models_status.keys())
+    loaded_models = [task for task, info in models_status.items() if info.get("loaded")]
+
+    return {
+        "status": "ok",
+        "vision_service": True,
+        "device": device,
+        "uptime_seconds": uptime,
+        "memory_usage": memory_usage,
+        "registered_models": registered_models,
+        "loaded_models": loaded_models,
+        "models_detail": models_status,
+        "aggregate_metrics": {
+            "total_requests": total_requests,
+            "error_count": total_errors,
+            "average_latency_ms": avg_latency,
+        },
+        "metrics_detail": metrics,
     }
 
 

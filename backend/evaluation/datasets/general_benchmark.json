@@ -1,0 +1,42 @@
+{
+  "dataset": "farm360_general_benchmark",
+  "version": "1.0.0",
+  "test_cases": [
+    {
+      "id": "agri_001",
+      "category": "crop_recommendation",
+      "difficulty": "easy",
+      "description": "Assam Rice planting query.",
+      "inputs": {
+        "query": "What crops should I plant in June in Assam, India?",
+        "user_profile": {"location": "Assam, India", "primary_crop": "Rice"},
+        "ml_context": "",
+        "language": "English"
+      },
+      "expected_keywords": ["Rice", "sowing", "npk", "basal"],
+      "required_sections": ["Kharif", "Actions"],
+      "evaluation_rules": {
+        "fail_under": 0.80,
+        "max_latency": 5.0
+      }
+    },
+    {
+      "id": "dairy_001",
+      "category": "dairy",
+      "difficulty": "medium",
+      "description": "Dairy feed optimization query.",
+      "inputs": {
+        "query": "How can I increase the milk yield of my cows?",
+        "user_profile": {"location": "Assam, India", "livestock": "12 cattle"},
+        "ml_context": "Dairy forecast: avg yield 8L/day",
+        "language": "English"
+      },
+      "expected_keywords": ["fodder", "deworming", "nutrition", "protein"],
+      "required_sections": ["Nutrition", "Management"],
+      "evaluation_rules": {
+        "fail_under": 0.85,
+        "max_latency": 5.0
+      }
+    }
+  ]
+}

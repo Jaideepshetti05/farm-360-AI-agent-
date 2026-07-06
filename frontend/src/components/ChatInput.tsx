@@ -55,6 +55,17 @@ function getOrCreateSessionId(): string {
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
+const VISION_TASKS = [
+  { id: "crop-disease", name: "Crop Disease", icon: "🌾" },
+  { id: "breed", name: "Bovine Breed", icon: "🐄" },
+  { id: "weed", name: "Weed Detection", icon: "🌿" },
+  { id: "detect", name: "Object Detect", icon: "🔍" },
+  { id: "plant-id", name: "Plant ID", icon: "🌱" },
+  { id: "fruit-grade", name: "Fruit Grading", icon: "🍎" },
+  { id: "fruit-detect", name: "Fruit Count", icon: "🔢" },
+  { id: "general-llm", name: "General Advisor", icon: "🤖" },
+];
+
 const ChatInput = forwardRef<ChatInputHandle, {
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -63,6 +74,7 @@ const ChatInput = forwardRef<ChatInputHandle, {
   const [query, setQuery]     = useState("");
   const [loading, setLoading] = useState(false);
   const [file, setFile]       = useState<File | null>(null);
+  const [visionTask, setVisionTask] = useState("crop-disease");
   const [connectionStatus, setConnectionStatus] = useState<"online" | "offline" | "checking">("online");
 
   const fileInputRef   = useRef<HTMLInputElement>(null);
@@ -117,7 +129,7 @@ const ChatInput = forwardRef<ChatInputHandle, {
   }, [setMessages]);
 
   // ── Core submit logic with retry ────────────────────────────────────────────
-  const doSubmit = useCallback(async (submittedQuery: string, submittedFile: File | null) => {
+  const doSubmit = useCallback(async (submittedQuery: string, submittedFile: File | null, submittedTask: string = "crop-disease") => {
     if (loadingRef.current) return;
     if (!submittedQuery.trim() && !submittedFile) return;
 
@@ -142,20 +154,27 @@ const ChatInput = forwardRef<ChatInputHandle, {
     setFile(null);
     setConnectionStatus("checking");
 
-    // All API calls go through Next.js server-side proxy routes.
-    // The proxy injects the API key server-side — never exposed to client.
-
     // Retry loop
     while (retryCountRef.current <= MAX_RETRIES) {
       try {
         const form = new FormData();
-        form.append("query", submittedQuery || "Analyze this image");
-        form.append("session_id", sessionIdRef.current);
-        form.append("model", selectedModel);
-        if (submittedFile) form.append("image", submittedFile);
+        const isVisionTask = submittedFile && submittedTask !== "general-llm";
+
+        if (isVisionTask) {
+          form.append("image", submittedFile);
+          form.append("lang", "en"); // Standard English
+          form.append("session_id", sessionIdRef.current);
+          form.append("include_explanation", "true");
+          form.append("model_version", "latest");
+        } else {
+          form.append("query", submittedQuery || "Analyze this image");
+          form.append("session_id", sessionIdRef.current);
+          form.append("model", selectedModel);
+          if (submittedFile) form.append("image", submittedFile);
+        }
 
         const endpoint = submittedFile
-          ? "/api/analyze-image"
+          ? (isVisionTask ? `/api/vision-predict?task=${submittedTask}` : "/api/analyze-image")
           : "/api/chat-stream";
 
         const res = await fetchWithTimeout(endpoint, {
@@ -167,35 +186,51 @@ const ChatInput = forwardRef<ChatInputHandle, {
           const err = await res.text();
           throw new Error(`Server ${res.status}: ${err}`);
         }
-        if (!res.body) throw new Error("No stream from server.");
-
+        
         setConnectionStatus("online");
 
         // ── Image endpoint: JSON response ──────────────────────────────────
         if (submittedFile) {
           const json = await res.json();
-          const data = json.response ?? json;
-          let text: string;
-          if (typeof data === "string") {
-            text = data;
+          let text = "";
+          let visionResult = null;
+
+          if (isVisionTask) {
+            visionResult = json;
+            if (json.explanation?.text) {
+              text = json.explanation.text;
+            } else if (json.predictions && json.predictions.length > 0) {
+              const top = json.predictions[0];
+              text = `Identified: **${top.display_name}** (${Math.round(top.confidence * 100)}% confidence).`;
+            } else if (json.error) {
+              text = `⚠️ Model Error: ${json.error}`;
+            } else {
+              text = "Inference completed successfully. No matching class predictions found.";
+            }
           } else {
-            // Convert structured JSON to readable markdown
-            const parts: string[] = [];
-            if (data.summary) parts.push(`**${data.summary}**\n`);
-            if (data.analysis) parts.push(data.analysis + "\n");
-            if (data.recommendations?.length) {
-              parts.push("## Recommendations");
-              data.recommendations.forEach((r: string) => parts.push(`- ${r}`));
-              parts.push("");
+            // Legacy /api/analyze-image format
+            const data = json.response ?? json;
+            if (typeof data === "string") {
+              text = data;
+            } else {
+              const parts: string[] = [];
+              if (data.summary) parts.push(`**${data.summary}**\n`);
+              if (data.analysis) parts.push(data.analysis + "\n");
+              if (data.recommendations?.length) {
+                parts.push("## Recommendations");
+                data.recommendations.forEach((r: string) => parts.push(`- ${r}`));
+                parts.push("");
+              }
+              if (data.action_steps?.length) {
+                parts.push("## Action Steps");
+                data.action_steps.forEach((s: string, i: number) => parts.push(`${i + 1}. ${s}`));
+              }
+              if (data.missing_data_warning) parts.push(`\n> ⚠️ ${data.missing_data_warning}`);
+              text = parts.join("\n");
             }
-            if (data.action_steps?.length) {
-              parts.push("## Action Steps");
-              data.action_steps.forEach((s: string, i: number) => parts.push(`${i + 1}. ${s}`));
-            }
-            if (data.missing_data_warning) parts.push(`\n> ⚠️ ${data.missing_data_warning}`);
-            text = parts.join("\n");
           }
-          patchMsg({ content: text, streaming: false });
+
+          patchMsg({ content: text, visionResult, streaming: false });
           setLoading(false);
           loadingRef.current = false;
           return;
@@ -289,12 +324,12 @@ const ChatInput = forwardRef<ChatInputHandle, {
   // ── Form submit ──────────────────────────────────────────────────────────
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    doSubmit(query, file);
+    doSubmit(query, file, visionTask);
   };
 
   // ── Expose sendQuery to parent (for suggestion chips) ────────────────────
   useImperativeHandle(ref, () => ({
-    sendQuery: (q: string) => doSubmit(q, null),
+    sendQuery: (q: string) => doSubmit(q, null, "crop-disease"),
   }));
 
   return (
@@ -302,19 +337,43 @@ const ChatInput = forwardRef<ChatInputHandle, {
       className="absolute bottom-0 inset-x-0 px-4 pb-4 pt-2"
       style={{ background: "linear-gradient(to top, var(--bg) 70%, transparent)" }}
     >
-      {/* File preview badge */}
+      {/* File preview and task selector */}
       {file && (
-        <div className="max-w-3xl mx-auto mb-2">
-          <span
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border-2)", color: "#aaa" }}
-          >
-            <span>📎</span>
-            <span className="truncate max-w-[180px]">{file.name}</span>
-            <button onClick={() => setFile(null)} className="ml-1 hover:text-red-400 transition-colors">
-              <X size={13} />
-            </button>
-          </span>
+        <div className="max-w-3xl mx-auto mb-3 flex flex-col gap-2">
+          {/* File badge */}
+          <div className="flex items-center">
+            <span
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm animate-in fade-in zoom-in duration-200"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border-2)", color: "#aaa" }}
+            >
+              <span>📎</span>
+              <span className="truncate max-w-[180px]">{file.name}</span>
+              <button onClick={() => setFile(null)} className="ml-1 hover:text-red-400 transition-colors">
+                <X size={13} />
+              </button>
+            </span>
+          </div>
+          
+          {/* Task selector pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5" style={{ scrollbarWidth: "none" }}>
+            <span className="text-xs shrink-0 font-medium mr-1 select-none" style={{ color: "#666" }}>Select Task:</span>
+            {VISION_TASKS.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setVisionTask(t.id)}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 active:scale-95"
+                style={{
+                  background: visionTask === t.id ? "rgba(22,163,74,0.18)" : "var(--surface-2)",
+                  border: visionTask === t.id ? "1px solid var(--accent)" : "1px solid var(--border-2)",
+                  color: visionTask === t.id ? "var(--accent)" : "#999",
+                }}
+              >
+                <span>{t.icon}</span>
+                <span>{t.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

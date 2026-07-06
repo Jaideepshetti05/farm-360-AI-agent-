@@ -13,6 +13,7 @@ export type Message = {
   imagePreview?: string;
   streaming?: boolean;
   timestamp: Date;
+  visionResult?: any;
 };
 
 export type Conversation = {

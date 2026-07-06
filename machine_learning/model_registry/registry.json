@@ -13,6 +13,21 @@
         "val_accuracy": null,
         "trained_on": "Crop Diseases dataset — 17 classes",
         "notes": "Initial production model. Upgrade path: v2.0 EfficientNet-B3 42-class"
+      },
+      "v2.0": {
+        "arch": "efficientnet_v2_s",
+        "type": "classification",
+        "description": "EfficientNetV2-S trained on 42-class crop disease/healthy dataset",
+        "classes_file": "machine_learning/model_registry/classes/crop_disease_v2.json",
+        "weights": "machine_learning/crop_vision/experiments/run_003/weights.pth",
+        "num_classes": 42,
+        "input_size": 224,
+        "val_accuracy": 17.92,
+        "val_f1": 0.0333,
+        "trained_date": "2026-06-26",
+        "cpu_latency_ms": 58.55,
+        "param_count_m": 21.5,
+        "notes": "Stage B completed model with 2 training epochs on CPU."
       }
     }
   },

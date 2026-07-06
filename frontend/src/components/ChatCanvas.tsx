@@ -127,6 +127,219 @@ const SUGGESTIONS = [
   { icon: "🐛", short: "Pest control guide", full: "What are the most effective organic and chemical pest control methods for cotton crops?" },
 ];
 
+// ─── Vision Result Card ──────────────────────────────────────────────────────
+type VisionResult = {
+  task: string;
+  success: boolean;
+  predictions: {
+    label: string;
+    display_name: string;
+    confidence: number;
+    rank: number;
+  }[];
+  explanation?: {
+    text: string;
+    language: string;
+    recommendations: string[];
+    urgency: string;
+    treatment_products: string[];
+  };
+  metadata?: {
+    width: number;
+    height: number;
+    processing_time_ms: number;
+    model_version: string;
+  };
+  extra: Record<string, any>;
+};
+
+function VisionResultCard({ result }: { result: VisionResult }) {
+  if (!result || !result.success) return null;
+
+  const { task, predictions, explanation, metadata, extra } = result;
+
+  // Map urgency to colors
+  const urgency = explanation?.urgency || extra?.urgency || "Medium";
+  const urgencyColor = 
+    urgency === "Critical" ? "#ef4444" :
+    urgency === "High" ? "#f97316" :
+    urgency === "Medium" ? "#eab308" : "#22c55e";
+
+  return (
+    <div 
+      className="rounded-xl p-4 my-2 text-sm animate-in fade-in slide-in-from-bottom-2 duration-300"
+      style={{ 
+        background: "rgba(255,255,255,0.02)", 
+        border: "1px solid rgba(255,255,255,0.06)",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.15)"
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">
+            {task === "crop-disease" ? "🌾" :
+             task === "breed" ? "🐄" :
+             task === "weed" ? "🌿" :
+             task === "detect" ? "🔍" :
+             task === "plant-id" ? "🌱" :
+             task === "fruit-grade" ? "🍎" : "🔢"}
+          </span>
+          <span className="font-semibold text-white tracking-wide uppercase text-[10px]">
+            {task.replace("-", " ").replace("_", " ")} Output
+          </span>
+        </div>
+        {metadata?.processing_time_ms && (
+          <span className="text-[10px] text-[#666]">
+            {metadata.processing_time_ms} ms · {metadata.model_version}
+          </span>
+        )}
+      </div>
+
+      {/* Predictions list with progress bars */}
+      {predictions && predictions.length > 0 && (
+        <div className="mb-4 space-y-2.5">
+          <div className="text-[10px] uppercase font-semibold text-[#888] tracking-wider mb-1">Model Predictions</div>
+          {predictions.slice(0, 3).map((p, index) => (
+            <div key={p.label || index} className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-300 font-medium">{p.display_name}</span>
+                <span style={{ color: index === 0 ? "var(--accent)" : "#888" }} className="font-semibold">
+                  {Math.round(p.confidence * 100)}%
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <div 
+                  className="h-full rounded-full transition-all duration-500 ease-out"
+                  style={{ 
+                    width: `${p.confidence * 100}%`,
+                    background: index === 0 ? "var(--accent)" : "rgba(255,255,255,0.15)"
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Task Specific Extra Meta */}
+      {task === "crop-disease" && extra && (
+        <div className="grid grid-cols-2 gap-3 p-3 mb-4 rounded-lg bg-white/[0.01] border border-white/5">
+          <div>
+            <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Crop</div>
+            <div className="text-xs font-semibold text-white mt-0.5">{extra.crop_type || "Unknown"}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Diagnosis</div>
+            <div className="text-xs font-semibold text-white mt-0.5 flex items-center gap-1.5">
+              <span>{extra.disease_name || "Healthy"}</span>
+              {extra.is_healthy ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              ) : (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              )}
+            </div>
+          </div>
+          {extra.causative_agent && (
+            <div>
+              <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Causative Agent</div>
+              <div className="text-xs text-gray-300 mt-0.5">{extra.causative_agent}</div>
+            </div>
+          )}
+          {extra.action_window_days && (
+            <div>
+              <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Treatment Window</div>
+              <div className="text-xs text-gray-300 mt-0.5">{extra.action_window_days} Days</div>
+            </div>
+          )}
+          {extra.quick_treatment && (
+            <div className="col-span-2 pt-2 border-t border-white/5">
+              <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Quick Treatment (First Aid)</div>
+              <div className="text-xs font-medium text-emerald-400 mt-0.5">{extra.quick_treatment}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {task === "breed" && extra && (
+        <div className="grid grid-cols-2 gap-3 p-3 mb-4 rounded-lg bg-white/[0.01] border border-white/5">
+          <div>
+            <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Breed Name</div>
+            <div className="text-xs font-semibold text-white mt-0.5">{extra.breed_name || "Unknown"}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Animal Type</div>
+            <div className="text-xs font-semibold text-white mt-0.5">{extra.animal_type || "Unknown"}</div>
+          </div>
+          {extra.avg_milk_L_day && (
+            <div>
+              <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Avg Daily Milk</div>
+              <div className="text-xs text-gray-300 mt-0.5">{extra.avg_milk_L_day} Liters</div>
+            </div>
+          )}
+          {extra.origin_region && (
+            <div>
+              <div className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Origin / Region</div>
+              <div className="text-xs text-gray-300 mt-0.5">{extra.origin_region}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Urgency and Products */}
+      {(explanation?.urgency || (explanation?.treatment_products && explanation.treatment_products.length > 0)) && (
+        <div className="flex flex-wrap items-center gap-2.5 mt-2 pt-2 border-t border-white/5">
+          {explanation?.urgency && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase text-[#666] tracking-wider font-semibold">Urgency:</span>
+              <span 
+                className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide"
+                style={{ 
+                  color: urgencyColor, 
+                  background: `${urgencyColor}18`,
+                  border: `1px solid ${urgencyColor}40`
+                }}
+              >
+                {urgency}
+              </span>
+            </div>
+          )}
+          {explanation?.treatment_products && explanation.treatment_products.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span className="text-[10px] uppercase text-[#666] tracking-wider font-semibold shrink-0">Products:</span>
+              <div className="flex flex-wrap gap-1">
+                {explanation.treatment_products.map((prod, idx) => (
+                  <span 
+                    key={idx}
+                    className="px-1.5 py-0.5 rounded text-[9px] font-medium border border-white/10 text-gray-400 bg-white/[0.02]"
+                  >
+                    {prod}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recommendations Checklist */}
+      {explanation?.recommendations && explanation.recommendations.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-white/5">
+          <div className="text-[10px] uppercase font-semibold text-[#888] tracking-wider mb-2">Recommended Actions</div>
+          <ul className="space-y-1.5">
+            {explanation.recommendations.map((rec, idx) => (
+              <li key={idx} className="flex gap-2 items-start text-xs text-gray-300">
+                <span className="text-green-500 shrink-0 text-[10px] mt-0.5">✓</span>
+                <span>{rec}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main ChatCanvas ────────────────────────────────────────────────────────
 export default function ChatCanvas({
   messages,
@@ -250,6 +463,7 @@ export default function ChatCanvas({
                 </div>
 
                 <div className="flex-1 min-w-0 space-y-1">
+                  {msg.visionResult && <VisionResultCard result={msg.visionResult} />}
                   <div
                     className="px-4 py-3.5 rounded-2xl rounded-bl-sm"
                     style={{ background: "var(--surface)", border: "1px solid var(--border)" }}

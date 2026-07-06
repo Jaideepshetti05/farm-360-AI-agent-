@@ -80,14 +80,28 @@ class VisionModel:
         self.input_size = input_size
 
     def predict(self, tensor) -> Dict[str, Any]:
-        """Run forward pass. Returns top-3 predictions."""
+        """Run forward pass with Temperature Scaling calibration. Returns top-3 predictions + stats."""
         if not _TORCH_OK or self.model is None:
             return {"predictions": [], "error": "Model not available"}
 
+        T_scale = 1.5
+        try:
+            T_scale = float(os.environ.get("VISION_TEMPERATURE_SCALING", "1.5"))
+        except ValueError:
+            pass
+
         with torch.no_grad():
             logits = self.model(tensor)
-            probs = torch.softmax(logits, dim=1)[0]
+            
+            # Uncalibrated softmax
+            raw_probs = torch.softmax(logits, dim=1)[0]
+            
+            # Calibrated softmax
+            calibrated_logits = logits / T_scale
+            probs = torch.softmax(calibrated_logits, dim=1)[0]
+            
             top_values, top_indices = torch.topk(probs, min(3, len(self.classes)))
+            entropy = -float(torch.sum(probs * torch.log(probs + 1e-9)).item())
 
         predictions = []
         for rank, (idx, prob) in enumerate(
@@ -102,7 +116,17 @@ class VisionModel:
                     "rank": rank,
                 }
             )
-        return {"predictions": predictions}
+        
+        top_idx = top_indices[0].item() if top_indices.numel() > 0 else 0
+        raw_top_conf = raw_probs[top_idx].item() if raw_probs.numel() > 0 else 0.0
+        calibrated_top_conf = top_values[0].item() if top_values.numel() > 0 else 0.0
+
+        return {
+            "predictions": predictions,
+            "entropy": entropy,
+            "raw_confidence": raw_top_conf,
+            "calibrated_confidence": calibrated_top_conf,
+        }
 
 
 # ── Registry singleton ─────────────────────────────────────────────────────────
@@ -263,6 +287,9 @@ def _build_torch_model(arch: str, num_classes: int, weights_path: str, input_siz
     elif arch_lower in ("efficientnet_b0", "efficientnet-b0"):
         model = tv_models.efficientnet_b0(weights=None)
         model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+    elif arch_lower in ("efficientnet_v2_s", "efficientnetv2_s", "efficientnet-v2-s"):
+        model = tv_models.efficientnet_v2_s(weights=None)
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
     elif arch_lower in ("mobilenet_v3_large", "mobilenetv3"):
         model = tv_models.mobilenet_v3_large(weights=None)
         model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
@@ -326,9 +353,9 @@ CROP_DISEASE_17_CLASSES = [
     "Rice___Healthy",
     "Rice___Leaf_Blast",
     "Rice___Neck_Blast",
-    "Sugarcane___Bacterial_Blight",
-    "Sugarcane___Healthy",
-    "Sugarcane___Red_Rot",
+    "Sugarcane_Bacterial Blight",
+    "Sugarcane_Healthy",
+    "Sugarcane_Red Rot",
     "Wheat___Brown_Rust",
     "Wheat___Healthy",
     "Wheat___Yellow_Rust",

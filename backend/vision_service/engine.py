@@ -104,7 +104,7 @@ class InferenceEngine:
         # 5. Forward pass
         raw = vision_model.predict(tensor)
         if "error" in raw:
-            return self._error_result(task, raw["error"])
+            return self._error_result(task, raw["error"], (time.perf_counter() - t_start) * 1000)
 
         # 6. Build ClassPrediction list (filter by threshold)
         predictions = [
@@ -120,6 +120,22 @@ class InferenceEngine:
             f"time={elapsed:.0f}ms"
         )
 
+        # Record success metrics
+        from backend.vision_service.monitoring import metrics_manager
+        metrics_manager.record_request(task, elapsed, success=True)
+
+        # Build extra dictionary containing calibration stats
+        extra_data = {
+            "arch": vision_model.arch,
+            "model_available": True,
+        }
+        if "entropy" in raw:
+            extra_data["entropy"] = round(raw["entropy"], 4)
+        if "raw_confidence" in raw:
+            extra_data["raw_confidence"] = round(raw["raw_confidence"], 4)
+        if "calibrated_confidence" in raw:
+            extra_data["calibrated_confidence"] = round(raw["calibrated_confidence"], 4)
+
         return PredictionResult(
             task=task,
             success=True,
@@ -131,7 +147,7 @@ class InferenceEngine:
                 model_version=vision_model.version,
                 confidence_threshold=confidence_threshold,
             ),
-            extra={"arch": vision_model.arch, "model_available": True},
+            extra=extra_data,
         )
 
     # ── Private helpers ────────────────────────────────────────────────────────
@@ -148,9 +164,13 @@ class InferenceEngine:
         )
         return transform(img).unsqueeze(0)  # Add batch dim
 
-    @staticmethod
-    def _error_result(task: str, message: str) -> PredictionResult:
+    def _error_result(self, task: str, message: str, elapsed_ms: float = 0.0) -> PredictionResult:
         logger.error(f"[Engine] {task}: {message}")
+        try:
+            from backend.vision_service.monitoring import metrics_manager
+            metrics_manager.record_request(task, elapsed_ms, success=False)
+        except Exception:
+            pass
         return PredictionResult(task=task, success=False, error=message)
 
 

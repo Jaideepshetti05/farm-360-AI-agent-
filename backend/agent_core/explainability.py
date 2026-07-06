@@ -22,22 +22,15 @@ def format_model_prediction(domain, raw_prediction):
         if "error" in raw_prediction:
             return f"Visual inspection could not be completed. (Error: {raw_prediction['error']}). Ensure the image is clear and well-lit."
         
-        idx = raw_prediction.get('class_index', 0)
+        disease_name = raw_prediction.get("display_name", "an anomaly")
+        is_healthy = raw_prediction.get("is_healthy", False)
+        confidence = raw_prediction.get("confidence_pct", "N/A")
         
-        # Standardized 17-class Agricultural Mapping
-        labels = [
-            "Healthy", "Apple Scab", "Apple Black Rot", "Cedar Apple Rust", "Cherry Powdery Mildew",
-            "Corn Cercospora Leaf Spot", "Corn Common Rust", "Corn Northern Leaf Blight", "Grape Black Rot", 
-            "Grape Esca", "Grape Leaf Blight", "Peach Bacterial Spot", "Pepper Bell Bacterial Spot",
-            "Potato Early Blight", "Potato Late Blight", "Tomato Early Blight", "Tomato Late Blight"
-        ]
-        disease_name = labels[idx] if 0 <= idx < len(labels) else f"an Unrecognized Anomaly (Code {idx})"
-        
-        if idx == 0:
-            return "Great news! Based on the visual analysis, your crop appears **Healthy**. Maintain your current fertilization and watering routines to ensure continued vitality."
+        if is_healthy:
+            return f"Great news! Based on the visual analysis, your crop appears **Healthy** ({disease_name}). Maintain your current fertilization and watering routines to ensure continued vitality."
         else:
-            return (f"Based on the visual analysis, your crop appears significantly affected by **{disease_name}**, "
-                    f"diagnosed with high confidence by our computer vision models. "
+            return (f"Based on the visual analysis, your crop appears significantly affected by **{disease_name}** "
+                    f"(Confidence: {confidence}) as diagnosed by our computer vision models. "
                     "Immediate isolation of the affected plants and targeted fungicidal/bactericidal treatments should be strongly evaluated.")
                 
     elif domain == "animal_disease":

@@ -3,16 +3,59 @@ import joblib
 import numpy as np
 import pandas as pd
 import pickle
+import hashlib
 from loguru import logger
 
-# Pre-load PyTorch models aggressively during initialization
-import torch
-import torch.nn as nn
-import torchvision.models as models
+# PyTorch imports omitted here; ModelRegistry manages vision model instantiation
 
 from backend.config import settings
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+# Whitelist of allowed SHA-256 hashes for pickle/joblib files to prevent arbitrary code execution
+ALLOWED_MODEL_HASHES = {
+    "production_model_log.pkl": "96d985fc66f588101cc5e805c8794bebafa6c979ff8d92cdec80db920e56db52",
+    "dairy_intelligence_v1_20260217_210257.pkl": "4b729de0b5dd8d123b9873abbdd56953c93ee2b6272ed73b5a4d2424c8dab406",
+    "dairy_regression_model.pkl": "4b729de0b5dd8d123b9873abbdd56953c93ee2b6272ed73b5a4d2424c8dab406",
+    "RandomForest_Tuned.pkl": "e195ba0d88edc2c1d5a18e67d1eaf070e7c7f17437a5d0c3a3ea730afc16a892",
+    "classification_scaler.pkl": "1f814764235bdef6b3588d474b3d39cfe79369e7688cd0db43aaf2ba62ab40b6",
+    "Animal_label_encoder.pkl": "cab14feeb07828cae99ef06ccbe22b1b0a73bcc274651b4dd62127083fd127e1",
+    "Symptom 1_label_encoder.pkl": "38e171bed1c700d3e6882aff43020cfb8302b72f7d65002ae84598d23ed1eb0b",
+    "Symptom 2_label_encoder.pkl": "38e171bed1c700d3e6882aff43020cfb8302b72f7d65002ae84598d23ed1eb0b",
+    "Symptom 3_label_encoder.pkl": "38e171bed1c700d3e6882aff43020cfb8302b72f7d65002ae84598d23ed1eb0b",
+    "Disease_label_encoder.pkl": "9d41c0c171213c808a1175f878667597cfd9f0be6c5129a5e40fbc18239c3df4"
+}
+
+def secure_verify_and_load(file_path: str, loader_fn):
+    """
+    Computes the SHA-256 hash of a file before deserialization and compares it
+    with the whitelist of expected hashes to mitigate arbitrary code execution risk.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Model file not found: {file_path}")
+        
+    filename = os.path.basename(file_path)
+    expected_hash = ALLOWED_MODEL_HASHES.get(filename)
+    if not expected_hash:
+        logger.warning(f"[Security] No hardcoded SHA256 registered for {filename}.")
+        raise ValueError(f"Security validation blocked loading: {filename} is not registered in the whitelist.")
+        
+    sha = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while True:
+            chunk = f.read(65536)
+            if not chunk:
+                break
+            sha.update(chunk)
+    actual_hash = sha.hexdigest()
+    
+    if actual_hash != expected_hash:
+        logger.error(f"[Security] FILE INTEGRITY FAILURE: {filename} (hash mismatch). Expected {expected_hash}, got {actual_hash}!")
+        raise ValueError(f"Model integrity validation failed: {filename} has been modified or corrupted.")
+        
+    logger.info(f"[Security] Model file integrity verified: {filename}")
+    return loader_fn(file_path)
 
 
 class Farm360API:
@@ -37,7 +80,7 @@ class Farm360API:
             logger.warning(f"Crop model not found: {self.crop_model_path}. Running in limited mode.")
             self.crop_model = None
         else:
-            self.crop_model = joblib.load(self.crop_model_path)
+            self.crop_model = secure_verify_and_load(self.crop_model_path, joblib.load)
 
         # 2. Dairy Regression
         logger.info("Loading Dairy Intelligence Model...")
@@ -46,8 +89,10 @@ class Farm360API:
              logger.warning(f"Dairy model not found: {self.dairy_model_path}. Running in limited mode.")
              self.dairy_model = None
         else:
-             with open(self.dairy_model_path, "rb") as f:
-                 self.dairy_model = pickle.load(f)
+             def load_pickle(path):
+                 with open(path, "rb") as f:
+                     return pickle.load(f)
+             self.dairy_model = secure_verify_and_load(self.dairy_model_path, load_pickle)
 
         # 3. Animal Disease Model
         logger.info("Loading Animal Disease Classification Model...")
@@ -68,8 +113,8 @@ class Farm360API:
                 self.animal_scaler = None
                 self.animal_encoders = {}
             else:
-                self.animal_model = joblib.load(model_file)
-                self.animal_scaler = joblib.load(scaler_file)
+                self.animal_model = secure_verify_and_load(model_file, joblib.load)
+                self.animal_scaler = secure_verify_and_load(scaler_file, joblib.load)
 
                 self.animal_encoders = {}
                 for feat in ["Animal", "Symptom 1", "Symptom 2", "Symptom 3", "Disease"]:
@@ -79,22 +124,10 @@ class Farm360API:
                         self.animal_encoders = {}
                         self.animal_model = None
                         break
-                    self.animal_encoders[feat] = joblib.load(enc_file)
+                    self.animal_encoders[feat] = secure_verify_and_load(enc_file, joblib.load)
 
-        # 4. Crop Vision Model
-        logger.info("Loading Crop Disease Vision Model (ResNet18)...")
-        self.vision_model_path = os.path.join(resolved_base, settings.crop_vision_model_path)
-        if not os.path.exists(self.vision_model_path):
-             logger.warning(f"Vision model not found: {self.vision_model_path}. Running in limited mode.")
-             self.vision_model = None
-        else:
-             self.vision_model = models.resnet18()
-             self.vision_model.fc = nn.Linear(self.vision_model.fc.in_features, 17)
-             self.vision_model.load_state_dict(
-                 torch.load(self.vision_model_path, map_location=torch.device('cpu'), weights_only=True)
-             )
-             self.vision_model.eval()
-
+        # 4. Crop Vision Model (delegated to lazy model_registry to prevent duplicate initialization)
+        logger.info("Crop Disease Vision Model delegated to ModelRegistry.")
         logger.success("Farm360API Initialized (some models may be unavailable in this environment)")
 
     def predict_crop_yield(
@@ -138,14 +171,47 @@ class Farm360API:
             return {"error": str(e)}
 
     def predict_crop_disease_from_image(self, image_tensor):
+        """
+        Run crop disease inference on a preprocessed image tensor.
+        Returns named disease label + confidence %, not just a class index.
+        """
         try:
-            if self.vision_model is None:
+            from backend.vision_service.registry import model_registry
+            vision_model = model_registry.get("crop_disease", "latest")
+            if vision_model is None:
                 return {"error": "Vision model not available in this environment", "class_index": None}
 
-            with torch.no_grad():
-                out = self.vision_model(image_tensor)
-                _, pred = torch.max(out, 1)
-            return {"class_index": int(pred.item()), "confidence": "High"}
+            raw = vision_model.predict(image_tensor)
+            if "error" in raw:
+                return {"error": raw["error"], "class_index": None}
+
+            predictions = raw.get("predictions", [])
+            if not predictions:
+                return {"error": "No predictions returned", "class_index": None}
+
+            top = predictions[0]
+            try:
+                class_index = vision_model.classes.index(top["label"])
+            except ValueError:
+                class_index = 0
+
+            return {
+                "class_index": class_index,
+                "label": top["label"],
+                "display_name": top["display_name"],
+                "confidence": top["confidence"],
+                "confidence_pct": f"{round(top['confidence'] * 100, 1)}%",
+                "top_3": [
+                    {
+                        "label": p["label"],
+                        "display_name": p["display_name"],
+                        "confidence": p["confidence"],
+                        "confidence_pct": f"{round(p['confidence'] * 100, 1)}%",
+                    }
+                    for p in predictions
+                ],
+                "is_healthy": "Healthy" in top["label"],
+            }
         except Exception as e:
             logger.error(f"Vision Inference Failed: {str(e)}")
             return {"error": str(e), "class_index": None}
