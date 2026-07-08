@@ -9,6 +9,14 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from backend.streaming.stream_manager import StreamManager
+from backend.provider_manager import provider_manager
+
+def mock_stream(messages, **kwargs):
+    text = "Kharif season rice requires basal NPK fertilizer before sowing. Actions checklist: 1. NPK basal application, 2. Rice sowing."
+    for word in text.split(" "):
+        yield word + " "
+
+provider_manager.stream_completion = mock_stream
 
 async def run_concurrent_users(count: int):
     manager = StreamManager()
