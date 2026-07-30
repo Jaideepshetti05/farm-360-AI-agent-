@@ -32,7 +32,8 @@ class PromptContextService:
         ml_context: str,
         recent_history: List[Dict[str, Any]],
         summary_text: Optional[str] = None,
-        max_context_tokens: int = 4096
+        max_context_tokens: int = 4096,
+        query: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Assembles System Prompt, User Profile, ML Context, Summaries, and Chat History 
@@ -59,6 +60,19 @@ class PromptContextService:
                     profile=json.dumps(user_profile, ensure_ascii=False),
                     ml_context=ml_context
                 )
+
+        # Inject Memory V2 long-term context if query is provided
+        if query:
+            try:
+                from backend.memory.session import MemoryManager, run_async_sync
+                mgr = MemoryManager()
+                async def _retrieve():
+                    return await mgr.v2.retrieve_relevant_context(query)
+                v2_context = run_async_sync(_retrieve())
+                if v2_context:
+                    formatted_system = f"{formatted_system}\n\n{v2_context}"
+            except Exception as ve3:
+                logger.warning(f"[ContextBuilder] Failed to retrieve Memory V2 context: {ve3}")
         
         system_tokens = cls.count_tokens(formatted_system)
         

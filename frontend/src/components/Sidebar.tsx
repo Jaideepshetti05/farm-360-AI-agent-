@@ -42,8 +42,7 @@ export default function Sidebar({
   const renameInputRef = useRef<HTMLInputElement>(null);
   const currentModel = MODELS.find(m => m.id === selectedModel) ?? MODELS[0];
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-  const API_KEY = process.env.NEXT_PUBLIC_FARM360_API_KEY || "farm360-dev-key";
+
 
   // Focus rename input when editing
   useEffect(() => {
@@ -308,8 +307,6 @@ export default function Sidebar({
         </button>
         {showVision && (
           <VisionUpload
-            apiKey={API_KEY}
-            backendUrl={BACKEND_URL}
             onResult={onVisionResult}
           />
         )}

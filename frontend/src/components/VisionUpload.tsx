@@ -102,14 +102,12 @@ const TASKS: { id: VisionTask; label: string; icon: React.ReactNode; endpoint: s
 
 interface VisionUploadProps {
   onResult?: (result: VisionResult, imagePreview: string, task: VisionTask) => void;
-  apiKey: string;
-  backendUrl: string;
   lang?: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function VisionUpload({ onResult, apiKey, backendUrl, lang = "en" }: VisionUploadProps) {
+export default function VisionUpload({ onResult, lang = "en" }: VisionUploadProps) {
   const [selectedTask, setSelectedTask] = useState<VisionTask>("crop-disease");
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -157,16 +155,15 @@ export default function VisionUpload({ onResult, apiKey, backendUrl, lang = "en"
     setResult(null);
 
     try {
-      const taskDef = TASKS.find(t => t.id === selectedTask)!;
       const form = new FormData();
       form.append("image", file);
       form.append("lang", lang);
       form.append("include_explanation", "true");
       form.append("model_version", "latest");
 
-      const res = await fetch(`${backendUrl}${taskDef.endpoint}`, {
+      // Route through Next.js server proxy — API key never touches the browser
+      const res = await fetch(`/api/vision-predict?task=${selectedTask}`, {
         method: "POST",
-        headers: { "X-API-Key": apiKey },
         body: form,
       });
 
@@ -183,7 +180,7 @@ export default function VisionUpload({ onResult, apiKey, backendUrl, lang = "en"
     } finally {
       setLoading(false);
     }
-  }, [file, selectedTask, lang, apiKey, backendUrl, onResult, preview]);
+  }, [file, selectedTask, lang, onResult, preview]);
 
   const handleClear = () => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
@@ -335,7 +332,8 @@ function PredictionCard({
 
   const top = result.predictions[0];
   const urgency = result.explanation?.urgency || "Low";
-  const urgencyColor = { Low: "#4ade80", Medium: "#facc15", High: "#f97316", Critical: "#ef4444" }[urgency];
+  const urgencyColor: string = ({ Low: "#4ade80", Medium: "#facc15", High: "#f97316", Critical: "#ef4444" } as Record<string, string>)[urgency] ?? "#4ade80";
+
 
   return (
     <div className="pred-card">
@@ -358,7 +356,6 @@ function PredictionCard({
         </button>
       </div>
 
-      {/* Top-3 confidence bars */}
       <div className="pred-bars">
         {result.predictions.slice(0, 3).map((p, i) => (
           <div key={i} className="pred-bar-row">
@@ -378,7 +375,7 @@ function PredictionCard({
       </div>
 
       {/* Quick treatment */}
-      {result.extra?.quick_treatment && (
+      {result.extra?.quick_treatment != null && (
         <div className="pred-quick-treatment">
           <span className="pred-qt-label">Quick Treatment:</span>
           <span>{String(result.extra.quick_treatment)}</span>

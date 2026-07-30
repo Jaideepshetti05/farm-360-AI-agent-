@@ -22,8 +22,9 @@ Usage:
 import os
 import time
 import threading
+import asyncio
 from dataclasses import dataclass, field
-from typing import Optional, Generator
+from typing import Optional, Generator, AsyncGenerator
 from loguru import logger
 
 # ── Provider SDKs ──────────────────────────────────────────────────────────────
@@ -312,6 +313,196 @@ class MultiProviderKeyManager:
             delta = chunk.choices[0].delta.content
             if delta:
                 yield delta
+
+    # ── Gemini Native Async streaming ──────────────────────────────────────────
+    async def _stream_gemini_async(self, entry: KeyEntry, messages: list[dict],
+                                   request_id: str,
+                                   temperature: float = 0.7,
+                                   max_tokens: int = 2048) -> AsyncGenerator[str, None]:
+        """Stream a completion asynchronously using the native google-genai SDK."""
+        from backend.observability.event_bus import EventBus
+        client = genai.Client(api_key=entry.key)
+
+        system_instruction = None
+        contents = []
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+            if role == "system":
+                system_instruction = content
+            elif role == "user":
+                contents.append(gemini_types.Content(
+                    role="user",
+                    parts=[gemini_types.Part(text=content)],
+                ))
+            elif role == "assistant":
+                contents.append(gemini_types.Content(
+                    role="model",
+                    parts=[gemini_types.Part(text=content)],
+                ))
+
+        config = gemini_types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        )
+
+        req_prefix = f"[{request_id}] " if request_id else ""
+        logger.info(
+            f"{req_prefix}[Gemini Native Async] Streaming with model={GEMINI_MODEL} "
+            f"key=…{entry.key[-8:]}"
+        )
+
+        EventBus.publish("provider_started", {"provider": "gemini", "model": GEMINI_MODEL, "request_id": request_id})
+        try:
+            response = await client.aio.models.generate_content_stream(
+                model=GEMINI_MODEL,
+                contents=contents,
+                config=config,
+            )
+            async for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+            EventBus.publish("provider_completed", {"provider": "gemini", "model": GEMINI_MODEL, "request_id": request_id, "success": True})
+        except asyncio.CancelledError:
+            logger.warning(f"{req_prefix}[Gemini Native Async] Stream cancelled by client request.")
+            EventBus.publish("provider_completed", {"provider": "gemini", "model": GEMINI_MODEL, "request_id": request_id, "success": False, "error": "Cancelled"})
+            raise
+        except Exception as e:
+            logger.error(f"{req_prefix}[Gemini Native Async] Stream error: {e}")
+            EventBus.publish("provider_completed", {"provider": "gemini", "model": GEMINI_MODEL, "request_id": request_id, "success": False, "error": str(e)})
+            raise
+
+    # ── OpenAI-compat Async streaming (OpenRouter / OpenAI) ────────────────────
+    async def _stream_openai_compat_async(self, entry: KeyEntry, provider: str,
+                                          messages: list[dict],
+                                          request_id: str,
+                                          temperature: float = 0.7,
+                                          max_tokens: int = 2048) -> AsyncGenerator[str, None]:
+        """Stream a completion asynchronously using the OpenAI SDK (for OpenRouter / OpenAI)."""
+        from backend.observability.event_bus import EventBus
+        from openai import AsyncOpenAI
+        cfg = _PROVIDER_CONFIGS[provider]
+
+        extra_headers = {}
+        if provider == "openrouter":
+            extra_headers = {
+                "HTTP-Referer": "https://farm360.app",
+                "X-Title": "Farm360 AI",
+            }
+
+        client = AsyncOpenAI(
+            base_url=cfg["base_url"],
+            api_key=entry.key,
+            timeout=20.0,
+            default_headers=extra_headers if extra_headers else None,
+        )
+
+        model = cfg["default_model"]
+        req_prefix = f"[{request_id}] " if request_id else ""
+        logger.info(
+            f"{req_prefix}[{cfg['label']} Async] Streaming with model={model} "
+            f"key=…{entry.key[-8:]}"
+        )
+
+        EventBus.publish("provider_started", {"provider": provider, "model": model, "request_id": request_id})
+        try:
+            stream = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=True,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            async for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+            EventBus.publish("provider_completed", {"provider": provider, "model": model, "request_id": request_id, "success": True})
+        except asyncio.CancelledError:
+            logger.warning(f"{req_prefix}[{cfg['label']} Async] Stream cancelled by client request.")
+            EventBus.publish("provider_completed", {"provider": provider, "model": model, "request_id": request_id, "success": False, "error": "Cancelled"})
+            raise
+        except Exception as e:
+            logger.error(f"{req_prefix}[{cfg['label']} Async] Stream error: {e}")
+            EventBus.publish("provider_completed", {"provider": provider, "model": model, "request_id": request_id, "success": False, "error": str(e)})
+            raise
+
+    # ── Unified async streaming interface ──────────────────────────────────────
+    async def stream_completion_async(self, messages: list[dict],
+                                      request_id: str,
+                                      temperature: float = 0.7,
+                                      max_tokens: int = 2048) -> AsyncGenerator[str, None]:
+        """
+        Stream a completion asynchronously, automatically selecting the best available provider.
+        Handles rotation on rate-limit errors and stops on auth errors.
+        """
+        MAX_ATTEMPTS = 6
+        req_prefix = f"[{request_id}] " if request_id else ""
+
+        for attempt in range(MAX_ATTEMPTS):
+            result = self.get_active_provider_and_key()
+
+            if result is None:
+                error_msg = (
+                    "⚠️ **No API Keys Available**\n\n"
+                    "All configured keys are exhausted or disabled. "
+                    "Please add valid keys to your `.env` file."
+                )
+                logger.error(f"{req_prefix}[KeyManager] {error_msg}")
+                self._last_error = "No API keys available"
+                yield error_msg
+                return
+
+            provider, entry = result
+
+            try:
+                if provider == "gemini":
+                    gen = self._stream_gemini_async(entry, messages, request_id, temperature, max_tokens)
+                else:
+                    gen = self._stream_openai_compat_async(entry, provider, messages, request_id, temperature, max_tokens)
+
+                async for token in gen:
+                    yield token
+
+                # If we got here, streaming succeeded
+                with self._lock:
+                    entry.mark_success()
+                    self._last_error = None
+                return
+
+            except asyncio.CancelledError:
+                logger.warning(f"{req_prefix}[KeyManager] Request cancelled during active stream generation.")
+                raise
+            except Exception as e:
+                err_str = str(e)
+                label = _PROVIDER_CONFIGS[provider]["label"]
+                logger.error(
+                    f"{req_prefix}[KeyManager] {label} key …{entry.key[-8:]} FAILED "
+                    f"(attempt {attempt + 1}/{MAX_ATTEMPTS}): {err_str}"
+                )
+
+                if _is_fatal_auth_error(e):
+                    with self._lock:
+                        entry.mark_auth_failed(err_str)
+                    self._last_error = f"[{label}] AUTH FATAL: {err_str}"
+                    continue
+                elif _is_rotatable_error(e):
+                    with self._lock:
+                        entry.mark_rate_limited(err_str)
+                    self._last_error = f"[{label}] RATE LIMITED: {err_str}"
+                    continue
+                else:
+                    self._last_error = f"[{label}] UNKNOWN: {err_str}"
+                    with self._lock:
+                        entry.mark_rate_limited(err_str)
+                    continue
+
+        error_msg = (
+            f"⚠️ **LLM Request Failed After {MAX_ATTEMPTS} Attempts**\n\n"
+            f"Last error: `{self._last_error}`\n\n"
+            "All available keys were tried."
+        )
+        yield error_msg
 
     # ── Unified streaming interface ────────────────────────────────────────────
     def stream_completion(self, messages: list[dict],

@@ -237,7 +237,9 @@ const ChatInput = forwardRef<ChatInputHandle, {
         }
 
         // ── SSE text/event-stream: update state on EVERY token ────────────
+        if (!res.body) throw new Error("No response body received from server.");
         const reader  = res.body.getReader();
+
         const decoder = new TextDecoder("utf-8");
         let buf = "";
         let streamError = false;

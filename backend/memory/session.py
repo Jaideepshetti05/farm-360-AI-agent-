@@ -61,6 +61,18 @@ class MemoryManager:
             self.use_db = False
             self._load_fallback()
 
+        # Initialize Long-Term Memory V2
+        from backend.memory_v2 import MemoryManagerV2
+        self.v2 = MemoryManagerV2()
+        self.v2.start()
+
+    def __del__(self):
+        try:
+            if hasattr(self, 'v2') and self.v2:
+                self.v2.stop()
+        except Exception:
+            pass
+
     async def _test_db_connection(self):
         from sqlalchemy import select
         async with async_session() as session:
@@ -218,22 +230,36 @@ class MemoryManager:
                 self.sessions[session_id].append({"role": role, "content": content})
                 self._dirty = True
             self._save_fallback()
-            return
+        else:
+            async def _add():
+                async with UnitOfWork() as uow:
+                    db_session = await uow.session_repo.get_session_by_id(session_id)
+                    if not db_session:
+                        await uow.session_repo.create_session(session_id, user_id="farmer_1")
+                    role_mapped = "user" if role == "user" else "assistant"
+                    await uow.session_repo.add_history_message(session_id, role_mapped, content)
+                    
+            try:
+                run_async_sync(_add())
+            except Exception as e:
+                logger.error(f"[MemoryManager] Failed to append DB message: {e}. Switching to fallback.")
+                self.use_db = False
+                self.add_message(session_id, role, content)
+                return
 
-        async def _add():
-            async with UnitOfWork() as uow:
-                db_session = await uow.session_repo.get_session_by_id(session_id)
-                if not db_session:
-                    await uow.session_repo.create_session(session_id, user_id="farmer_1")
-                role_mapped = "user" if role == "user" else "assistant"
-                await uow.session_repo.add_history_message(session_id, role_mapped, content)
+        # Auto-propagate to Memory V2 when the assistant replies
+        if role == "assistant" and hasattr(self, 'v2') and self.v2:
+            try:
+                history = self.get_chat_history(session_id, max_turns=1)
+                user_query = "agricultural query"
+                if len(history) >= 2 and history[-2]["role"] == "user":
+                    user_query = history[-2]["content"]
                 
-        try:
-            run_async_sync(_add())
-        except Exception as e:
-            logger.error(f"[MemoryManager] Failed to append DB message: {e}. Switching to fallback.")
-            self.use_db = False
-            self.add_message(session_id, role, content)
+                async def _save_v2():
+                    await self.v2.add_interaction(user_query, content, category="working")
+                run_async_sync(_save_v2())
+            except Exception as ve2:
+                logger.warning(f"[MemoryManagerV2] Failed to auto-insert interaction: {ve2}")
 
     def set_user_profile(self, user_id, profile_dict):
         """Updates user profile properties."""

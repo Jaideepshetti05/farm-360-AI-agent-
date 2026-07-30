@@ -203,7 +203,7 @@ def health_check():
     if hasattr(agent, 'api') and agent.api is not None:
         model_status["crop_model"]   = agent.api.crop_model is not None
         model_status["dairy_model"]  = agent.api.dairy_model is not None
-        model_status["vision_model"] = agent.api.vision_model is not None
+        model_status["vision_model"] = _VISION_OK
         model_status["animal_model"] = agent.api.animal_model is not None
 
     return {

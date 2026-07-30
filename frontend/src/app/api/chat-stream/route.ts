@@ -6,7 +6,8 @@ import { NextRequest } from "next/server";
  */
 export async function POST(req: NextRequest) {
   const BACKEND = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-  const API_KEY = process.env.FARM360_API_KEY || process.env.NEXT_PUBLIC_FARM360_API_KEY || "";
+  const API_KEY = process.env.FARM360_API_KEY || "";
+
 
   try {
     const formData = await req.formData();
