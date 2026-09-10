@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import os
-import psutil
+import shutil
 from loguru import logger
 from sqlalchemy import select
 from backend.core.database import async_session
@@ -31,9 +31,26 @@ class HealthService:
         # 2. Redis check
         try:
             import redis
-            redis_host = os.environ.get("REDIS_HOST", "localhost")
-            redis_port = int(os.environ.get("REDIS_PORT", 6379))
-            r = redis.Redis(host=redis_host, port=redis_port, socket_timeout=1.0)
+            redis_host = os.environ.get("REDIS_HOST") or getattr(settings, "redis_host", "127.0.0.1")
+            redis_port = int(os.environ.get("REDIS_PORT") or getattr(settings, "redis_port", 6379))
+            redis_db = int(os.environ.get("REDIS_DB") or getattr(settings, "redis_db", 0))
+
+            raw_password = os.environ.get("REDIS_PASSWORD") or getattr(settings, "redis_password", "")
+            redis_password = str(raw_password).strip() if raw_password else None
+
+            ssl_env = os.environ.get("REDIS_SSL")
+            ssl_val = ssl_env if ssl_env is not None else getattr(settings, "redis_ssl", False)
+            redis_ssl = ssl_val if isinstance(ssl_val, bool) else str(ssl_val).strip().lower() in ("true", "1", "yes", "on")
+
+            r = redis.Redis(
+                host=redis_host,
+                port=redis_port,
+                db=redis_db,
+                password=redis_password,
+                ssl=redis_ssl,
+                socket_timeout=1.0,
+                socket_connect_timeout=1.0,
+            )
             r.ping()
             health_status["details"]["redis"] = "Online (Ping passed)"
         except ImportError:
@@ -46,9 +63,10 @@ class HealthService:
 
         # 3. Disk storage check
         try:
-            usage = psutil.disk_usage(".")
-            health_status["details"]["disk_free_gb"] = round(usage.free / (1024**3), 2)
-            if usage.percent > 95:
+            total, used, free = shutil.disk_usage(".")
+            percent = (used / total) * 100 if total > 0 else 0
+            health_status["details"]["disk_free_gb"] = round(free / (1024**3), 2)
+            if percent > 95:
                 health_status["disk_storage"] = "warning"
                 health_status["status"] = "degraded"
         except Exception as e:

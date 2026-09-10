@@ -3,7 +3,6 @@ import json
 import time
 from typing import Optional, Dict, Any, Tuple
 from loguru import logger
-from backend.streaming.config import StreamingConfig
 
 # Memory Cache stores: key -> (value, expires_at)
 _MEM_CACHE: Dict[str, Tuple[str, Optional[float]]] = {}
@@ -24,17 +23,30 @@ class RedisManager:
         if self.client is None:
             try:
                 import redis
-                host = os.environ.get("REDIS_HOST", "127.0.0.1")
-                port = int(os.environ.get("REDIS_PORT", 6379))
-                db = int(os.environ.get("REDIS_DB", 0))
-                
+                from backend.config import settings
+
+                host = os.environ.get("REDIS_HOST") or getattr(settings, "redis_host", "127.0.0.1")
+                port = int(os.environ.get("REDIS_PORT") or getattr(settings, "redis_port", 6379))
+                db = int(os.environ.get("REDIS_DB") or getattr(settings, "redis_db", 0))
+
+                raw_password = os.environ.get("REDIS_PASSWORD") or getattr(settings, "redis_password", "")
+                password = str(raw_password).strip() if raw_password else None
+
+                ssl_env = os.environ.get("REDIS_SSL")
+                ssl_val = ssl_env if ssl_env is not None else getattr(settings, "redis_ssl", False)
+                ssl_enabled = ssl_val if isinstance(ssl_val, bool) else str(ssl_val).strip().lower() in ("true", "1", "yes", "on")
+
                 req_prefix = f"[{request_id}] " if request_id else ""
-                logger.debug(f"{req_prefix}[Cache] Attempting to connect to Redis at {host}:{port}")
-                
+                auth_desc = " (authenticated)" if password else ""
+                ssl_desc = " (SSL/TLS enabled)" if ssl_enabled else ""
+                logger.debug(f"{req_prefix}[Cache] Attempting to connect to Redis at {host}:{port}/{db}{auth_desc}{ssl_desc}")
+
                 self.client = redis.Redis(
                     host=host,
                     port=port,
                     db=db,
+                    password=password,
+                    ssl=ssl_enabled,
                     socket_timeout=1.0,
                     socket_connect_timeout=1.0
                 )
@@ -125,6 +137,7 @@ class CacheService:
     def set(cls, key: str, value: str, ttl: Optional[int] = None, request_id: Optional[str] = None):
         from backend.observability.event_bus import EventBus
         if ttl is None:
+            from backend.streaming.config import StreamingConfig
             ttl = StreamingConfig.CACHE_DEFAULT_TTL
             
         req_prefix = f"[{request_id}] " if request_id else ""

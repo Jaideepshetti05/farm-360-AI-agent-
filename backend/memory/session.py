@@ -9,25 +9,43 @@ from backend.config import settings
 # Database & Services imports
 from backend.services.database_service import UnitOfWork
 from backend.models.database import ChatSession, UserProfile, Setting, User
-from backend.core.database import async_session
+from backend.core.database import async_session, get_main_loop
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAX_SESSIONS = 100
 MAX_MESSAGES_PER_SESSION = 200
 
-def run_async_sync(coro):
-    """Bridges async database calls into synchronous execution paths safely."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
+def run_async_sync(coro, timeout: float = 30.0):
+    """
+    Bridges async database calls into synchronous execution paths safely.
+    Uses the registered main Uvicorn event loop for worker threads via run_coroutine_threadsafe.
+    Falls back to asyncio.run() only when no application event loop is running (e.g. standalone tests/scripts).
+    """
+    main_loop = get_main_loop()
 
-    if loop and loop.is_running():
-        # Run in thread pool to prevent blocking the async event loop
+    # 1. If the primary application loop is registered and running
+    if main_loop and main_loop.is_running():
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+
+        # When called from a worker thread (not directly on the main loop)
+        if current_loop is not main_loop:
+            future = asyncio.run_coroutine_threadsafe(coro, main_loop)
+            return future.result(timeout=timeout)
+
+    # 2. Standalone script / test environment fallback
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+
+    if current_loop and current_loop.is_running():
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(lambda: asyncio.run(coro))
-            return future.result()
+            return future.result(timeout=timeout)
     else:
         return asyncio.run(coro)
 
@@ -46,25 +64,35 @@ class MemoryManager:
         self.sessions = {}
         self.profiles = {}
         self._dirty = False
-        
-        # Test DB connection health on startup
         self.use_db = False
-        try:
-            run_async_sync(self._test_db_connection())
-            self.use_db = True
-            logger.success("[Database] Database connection successful. Memory persistence active.")
-            
-            # Run JSON migration to PostgreSQL in background
-            run_async_sync(self._migrate_legacy_data())
-        except Exception as e:
-            logger.warning(f"[Database] Connection failed: {e}. Falling back to local JSON memory storage.")
-            self.use_db = False
-            self._load_fallback()
+        
+        # Load local fallback storage immediately
+        self._load_fallback()
 
         # Initialize Long-Term Memory V2
         from backend.memory_v2 import MemoryManagerV2
         self.v2 = MemoryManagerV2()
         self.v2.start()
+
+    async def initialize_db(self) -> bool:
+        """
+        Asynchronously initializes database persistence on the primary event loop.
+        Tests connectivity and runs legacy data migration without creating new loops.
+        """
+        self.use_db = False
+        try:
+            await self._test_db_connection()
+            self.use_db = True
+            logger.success("[Database] Database connection successful. Memory persistence active.")
+            
+            # Run JSON migration to PostgreSQL
+            await self._migrate_legacy_data()
+            return True
+        except Exception as e:
+            logger.warning(f"[Database] Connection failed: {e}. Falling back to local JSON memory storage.")
+            self.use_db = False
+            self._load_fallback()
+            return False
 
     def __del__(self):
         try:
@@ -82,6 +110,7 @@ class MemoryManager:
         """Migrates data from legacy memory.json to the database if migration hasn't happened yet."""
         if os.path.exists(self.storage_file):
             try:
+                from sqlalchemy import select
                 with open(self.storage_file, "r") as f:
                     data = json.load(f)
                 sessions = data.get("sessions", {})
@@ -95,7 +124,6 @@ class MemoryManager:
                 async with async_session() as session:
                     # 1. Migrate Profiles
                     for user_id, p_data in profiles.items():
-                        from sqlalchemy import select
                         
                         user_stmt = select(User).where(User.id == user_id)
                         res = await session.execute(user_stmt)
@@ -261,8 +289,8 @@ class MemoryManager:
             except Exception as ve2:
                 logger.warning(f"[MemoryManagerV2] Failed to auto-insert interaction: {ve2}")
 
-    def set_user_profile(self, user_id, profile_dict):
-        """Updates user profile properties."""
+    async def set_user_profile_async(self, user_id, profile_dict):
+        """Asynchronously updates user profile properties on the current event loop."""
         if not self.use_db:
             with self.lock:
                 if user_id not in self.profiles:
@@ -272,7 +300,7 @@ class MemoryManager:
             self._save_fallback()
             return
 
-        async def _set():
+        try:
             async with UnitOfWork() as uow:
                 location = profile_dict.get("location")
                 gps = profile_dict.get("gps_coordinates")
@@ -281,9 +309,29 @@ class MemoryManager:
                     location=location,
                     gps_coordinates=gps
                 )
-                
+        except Exception as e:
+            logger.error(f"[MemoryManager] Failed to update user profile in DB: {e}. Switching to fallback.")
+            self.use_db = False
+            with self.lock:
+                if user_id not in self.profiles:
+                    self.profiles[user_id] = {}
+                self.profiles[user_id].update(profile_dict)
+                self._dirty = True
+            self._save_fallback()
+
+    def set_user_profile(self, user_id, profile_dict):
+        """Updates user profile properties (synchronous interface)."""
+        if not self.use_db:
+            with self.lock:
+                if user_id not in self.profiles:
+                    self.profiles[user_id] = {}
+                self.profiles[user_id].update(profile_dict)
+                self._dirty = True
+            self._save_fallback()
+            return
+
         try:
-            run_async_sync(_set())
+            run_async_sync(self.set_user_profile_async(user_id, profile_dict))
         except Exception as e:
             logger.error(f"[MemoryManager] Failed to update user profile in DB: {e}. Switching to fallback.")
             self.use_db = False

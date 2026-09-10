@@ -1,0 +1,99 @@
+# =============================================================================
+# Farm360 AI / LLM — Docker Build Ignore File (.dockerignore)
+# =============================================================================
+
+# ─── Version Control & IDEs ───────────────────────────────────────────────────
+.git
+.git/**
+.gitignore
+.gitattributes
+.github
+.vscode
+.idea
+.qoder
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Python Virtual Environments & Bytecode ───────────────────────────────────
+.venv
+.venv/**
+venv
+venv/**
+env
+env/**
+ENV
+ENV/**
+__pycache__
+__pycache__/**
+**/__pycache__/**
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+*.egg-info/**
+dist
+build
+
+# ─── Node.js & Frontend Artifacts ─────────────────────────────────────────────
+node_modules
+node_modules/**
+**/node_modules/**
+frontend/node_modules
+frontend/node_modules/**
+frontend/.next
+frontend/.next/**
+.next
+.next/**
+frontend/.vercel
+frontend/.vercel/**
+frontend/out
+frontend/out/**
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── Environment & Secret Files ───────────────────────────────────────────────
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+!.env.example
+!backend/.env.example
+
+# ─── Databases, Local Caches & Logs ───────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+farm360.db
+*.log
+**/*.log
+backend/server.log
+backend/logs/memory.json.migrated
+
+# ─── Large Dataset Archives & Temporary Files ─────────────────────────────────
+*.zip
+clean.zip
+backend/temp_uploads/*
+!backend/temp_uploads/.gitkeep
+machine_learning/data/**
+machine_learning/crop_vision/experiments/**
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# ─── Testing & Documentation Build Caches ─────────────────────────────────────
+.pytest_cache
+.pytest_cache/**
+.mypy_cache
+.mypy_cache/**
+.coverage
+htmlcov
+htmlcov/**
+.ipynb_checkpoints
+.ipynb_checkpoints/**

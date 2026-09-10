@@ -88,7 +88,7 @@ _PROVIDER_CONFIGS: dict[str, dict] = {
     },
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
-        "default_model": "google/gemma-4-27b-it:free",
+        "default_model": "google/gemma-2-9b-it:free",
         "label": "OpenRouter",
     },
     "openai": {

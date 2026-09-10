@@ -9,9 +9,23 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 load_dotenv(os.path.join(root_dir, ".env"))
 
 class Settings(BaseSettings):
-    # ── Application key ────────────────────────────────────────────────────────
+    # ── Environment mode ───────────────────────────────────────────────────────
+    environment: str = "development"
+
+    # ── Application key & encryption ───────────────────────────────────────────
     farm360_api_key: str | None = None
     farm360_encryption_key: str | None = None
+
+    # ── Database & Redis ───────────────────────────────────────────────────────
+    database_url: str | None = None
+    redis_host: str = "127.0.0.1"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: str | None = None
+    redis_ssl: bool = False
+
+    # ── CORS ───────────────────────────────────────────────────────────────────
+    cors_origins: str | None = None
 
     # ── Legacy single-key fields (kept for backward compatibility) ─────────────
     # These are read if only the old single-key env vars are set.

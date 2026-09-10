@@ -36,10 +36,9 @@ vision_v2/embeddings/
 
 # ─── Environment & Secrets ────────────────────────────────────────────────────
 .env
-.env.local
-.env.*.local
-.env.production
-.env.development
+.env.*
+!.env.example
+!.env.*.example
 *.env
 farm360_agent/.env
 farm360_nextjs/.env.local
@@ -62,10 +61,26 @@ yarn-error.log*
 pnpm-debug.log*
 .pnpm-debug.log*
 
+# ─── Databases & Local SQLite Files ───────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+farm360.db
+
+# ─── Logs & Runtime State ─────────────────────────────────────────────────────
+*.log
+**/*.log
+backend/server.log
+backend/logs/
+backend/logs/*
+*.migrated
+
 # ─── Temporary Server & Upload Files ──────────────────────────────────────────
+temp_uploads/
+backend/temp_uploads/
 farm360_agent/temp_uploads/
 farm360_agent/server.log
-farm360_agent/logs/memory.json
+farm360_agent/logs/
 
 # ─── Python Test / Cache ──────────────────────────────────────────────────────
 .pytest_cache/

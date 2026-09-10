@@ -84,9 +84,13 @@ async def lifespan(app: FastAPI):
     os.makedirs(TEMP_DIR, exist_ok=True)
     global agent
     
+    # Register the primary application event loop for thread-safe database operations
+    from backend.core.database import set_main_loop, engine
+    loop = asyncio.get_running_loop()
+    set_main_loop(loop)
+
     # Run database schema initialization
     try:
-        from backend.core.database import engine
         from backend.models.database import Base
         logger.info("[Database] Validating database schema and generating tables if missing...")
         async with engine.begin() as conn:
@@ -101,7 +105,9 @@ async def lifespan(app: FastAPI):
             use_mock_llm=False,
             model_base_path=settings.model_base_path,
         )
-        agent.memory.set_user_profile(agent.user_id, {
+        # Asynchronously initialize database persistence on the primary event loop
+        await agent.memory.initialize_db()
+        await agent.memory.set_user_profile_async(agent.user_id, {
             "location": "Assam, India",
             "farm_size": 100,
             "primary_crop": "Rice",
@@ -134,8 +140,36 @@ if _VISION_OK:
     app.include_router(_fruit_router)
     logger.info("Vision service routes registered: /vision/{crop-disease,breed,weed,detect,plant-id,fruit-grade,fruit-detect}")
 
-# More restrictive CORS for production
-_CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+from backend.core.security import is_production
+
+def _resolve_cors_origins() -> list[str]:
+    """
+    Resolve and validate CORS origins based on the runtime environment.
+    In development: defaults to localhost development origins if unset.
+    In production: enforces explicit, non-wildcard domain origins.
+    """
+    raw_cors = os.environ.get("CORS_ORIGINS", "").strip()
+
+    if is_production():
+        if not raw_cors:
+            raise ValueError(
+                "CORS_ORIGINS must be explicitly configured in production mode. "
+                "Wildcard or empty origins are not permitted."
+            )
+        origins = [o.strip() for o in raw_cors.split(",") if o.strip()]
+        if "*" in origins:
+            raise ValueError(
+                "CORS_ORIGINS cannot contain wildcard '*' in production mode. "
+                "Specify explicit allowed domain origins (e.g. https://yourdomain.com)."
+            )
+        return origins
+
+    # Development mode fallback
+    if raw_cors:
+        return [o.strip() for o in raw_cors.split(",") if o.strip()]
+    return ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+_CORS_ORIGINS = _resolve_cors_origins()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,

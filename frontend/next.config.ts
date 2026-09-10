@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Stability settings
   reactStrictMode: true,
   // Allowed dev origins

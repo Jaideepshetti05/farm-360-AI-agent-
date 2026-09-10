@@ -1,7 +1,23 @@
 import os
+import asyncio
+from typing import Optional
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from backend.config import settings
 from loguru import logger
+
+_main_loop: Optional[asyncio.AbstractEventLoop] = None
+
+def set_main_loop(loop: Optional[asyncio.AbstractEventLoop]) -> None:
+    """Registers the primary application event loop (e.g. Uvicorn loop)."""
+    global _main_loop
+    _main_loop = loop
+
+def get_main_loop() -> Optional[asyncio.AbstractEventLoop]:
+    """Returns the primary application event loop if registered and open."""
+    global _main_loop
+    if _main_loop is not None and not _main_loop.is_closed():
+        return _main_loop
+    return None
 
 # Fetch connection string. Fallback to a local SQLite database for easy development/testing if no Postgres is provided.
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()

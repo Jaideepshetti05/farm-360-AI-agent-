@@ -127,7 +127,7 @@ class Farm360Agent:
         history    = self.memory.get_chat_history(self.session_id, max_turns=None)
         summary    = getattr(self.memory, "get_summary", lambda sid: None)(self.session_id)
 
-        return PromptContextService.build_prompt_context(
+        messages = PromptContextService.build_prompt_context(
             system_prompt_template="general_assistant",
             user_profile=profile,
             ml_context=ml_context,
@@ -135,6 +135,8 @@ class Farm360Agent:
             summary_text=summary,
             max_context_tokens=4096
         )
+        messages.append({"role": "user", "content": query})
+        return messages
 
     # -----------------------------------------------------------------------
     # STREAMING prose (generator -- yields text tokens)

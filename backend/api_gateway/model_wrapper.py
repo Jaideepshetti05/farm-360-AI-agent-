@@ -27,6 +27,18 @@ ALLOWED_MODEL_HASHES = {
     "Disease_label_encoder.pkl": "9d41c0c171213c808a1175f878667597cfd9f0be6c5129a5e40fbc18239c3df4"
 }
 
+class _NumPyCompatUnpickler(pickle.Unpickler):
+    """
+    Standard library Unpickler subclass that remaps NumPy 2.x private namespaces
+    (numpy._core.*) to their NumPy 1.x equivalents (numpy.core.*) when
+    deserializing models under a NumPy 1.x runtime.
+    """
+    def find_class(self, module: str, name: str):
+        if module.startswith("numpy._core"):
+            module = "numpy.core" + module[len("numpy._core"):]
+        return super().find_class(module, name)
+
+
 def secure_verify_and_load(file_path: str, loader_fn):
     """
     Computes the SHA-256 hash of a file before deserialization and compares it
@@ -91,7 +103,7 @@ class Farm360API:
         else:
              def load_pickle(path):
                  with open(path, "rb") as f:
-                     return pickle.load(f)
+                     return _NumPyCompatUnpickler(f).load()
              self.dairy_model = secure_verify_and_load(self.dairy_model_path, load_pickle)
 
         # 3. Animal Disease Model
