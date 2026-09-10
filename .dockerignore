@@ -87,6 +87,41 @@ machine_learning/crop_vision/experiments/**
 *.rar
 *.7z
 
+# ─── Machine Learning Unused & Experimental Artifacts ─────────────────────────
+# Exclude unlogged crop regression duplicate (saves ~267.2 MB)
+machine_learning/crop_regression/models/production_model.pkl
+
+# Exclude unused animal disease benchmark models (saves ~491.5 MB)
+machine_learning/models/animal_disease_20260218_215356/Extra_Trees_Classifier.pkl
+machine_learning/models/animal_disease_20260218_215356/Soft_Voting.pkl
+machine_learning/models/animal_disease_20260218_215356/Hard_Voting.pkl
+machine_learning/models/animal_disease_20260218_215356/Random_Forest_Classifier.pkl
+machine_learning/models/animal_disease_20260218_215356/Decision_Tree_Classifier.pkl
+machine_learning/models/animal_disease_20260218_215356/Gradient_Boosting_Classifier.pkl
+machine_learning/models/animal_disease_20260218_215356/AdaBoost_Classifier.pkl
+machine_learning/models/animal_disease_20260218_215356/LightGBM_Classifier.pkl
+machine_learning/models/animal_disease_20260218_215356/XGBoost_Classifier.pkl
+machine_learning/models/animal_disease_20260218_215356/XGBoost_Tuned.pkl
+machine_learning/models/animal_disease_20260218_215356/K_Nearest_Neighbors.pkl
+machine_learning/models/animal_disease_20260218_215356/SVM.pkl
+machine_learning/models/animal_disease_20260218_215356/Logistic_Regression.pkl
+machine_learning/models/animal_disease_20260218_215356/Naive_Bayes.pkl
+machine_learning/models/animal_disease_20260218_215356/pca*.pkl
+machine_learning/models/animal_disease_20260218_215356/tsne.pkl
+
+# Exclude unused regression runs and legacy model folders (saves ~14 MB)
+machine_learning/models/agri_ai_regression_v1_*.pkl
+machine_learning/models/agriculture_*/**
+machine_learning/models/animal_detection_*/**
+machine_learning/models/comprehensive_animal_*/**
+machine_learning/models/livestock_census_*/**
+
+# Exclude offline vision embeddings, evaluation reports, and charts (saves ~79 MB)
+machine_learning/vision_v2/embeddings/**
+machine_learning/reports/**
+machine_learning/visualizations/**
+machine_learning/experiments/**
+
 # ─── Testing & Documentation Build Caches ─────────────────────────────────────
 .pytest_cache
 .pytest_cache/**
@@ -97,3 +132,5 @@ htmlcov
 htmlcov/**
 .ipynb_checkpoints
 .ipynb_checkpoints/**
+*.ipynb
+**/*.ipynb

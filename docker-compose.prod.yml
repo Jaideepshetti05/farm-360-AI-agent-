@@ -1,0 +1,161 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Farm360 AI / LLM — Production Docker Compose Stack
+# Architecture: Caddy (80/443) ➔ Next.js (3000) ➔ FastAPI (8000) ➔ Postgres/Redis
+# ══════════════════════════════════════════════════════════════════════════════
+
+services:
+  # ── 1. Caddy Reverse Proxy & TLS Terminator ────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: farm360_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - farm360-prod-net
+
+  # ── 2. Next.js Frontend (Standalone Production Build) ──────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: farm360_frontend
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+      BACKEND_API_URL: http://backend:8000
+      NEXT_PUBLIC_API_BASE_URL: http://backend:8000
+      FARM360_API_KEY: ${FARM360_API_KEY}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - farm360-prod-net
+
+  # ── 3. FastAPI Backend (AI Agent & ML Services) ────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: farm360_backend
+    restart: always
+    environment:
+      ENVIRONMENT: production
+      FARM360_API_KEY: ${FARM360_API_KEY}
+      FARM360_ENCRYPTION_KEY: ${FARM360_ENCRYPTION_KEY}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-farm360_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-farm360_prod}}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_SSL: "false"
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      MODEL_BASE_PATH: /app
+      GOOGLE_API_KEY_1: ${GOOGLE_API_KEY_1:-}
+      GOOGLE_API_KEY_2: ${GOOGLE_API_KEY_2:-}
+      GOOGLE_API_KEY_3: ${GOOGLE_API_KEY_3:-}
+      GOOGLE_API_KEY_4: ${GOOGLE_API_KEY_4:-}
+      GOOGLE_API_KEY_5: ${GOOGLE_API_KEY_5:-}
+      OPENROUTER_API_KEY_1: ${OPENROUTER_API_KEY_1:-}
+      OPENROUTER_API_KEY_2: ${OPENROUTER_API_KEY_2:-}
+      OPENROUTER_API_KEY_3: ${OPENROUTER_API_KEY_3:-}
+      OPENROUTER_API_KEY_4: ${OPENROUTER_API_KEY_4:-}
+      OPENROUTER_API_KEY_5: ${OPENROUTER_API_KEY_5:-}
+      OPENAI_API_KEY_1: ${OPENAI_API_KEY_1:-}
+      OPENAI_API_KEY_2: ${OPENAI_API_KEY_2:-}
+      OPENAI_API_KEY_3: ${OPENAI_API_KEY_3:-}
+      OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/liveness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - farm360-prod-net
+
+  # ── 4. PostgreSQL + pgvector Relational & Vector Storage ───────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: farm360_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-farm360_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-farm360_prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-farm360_user} -d $${POSTGRES_DB:-farm360_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - farm360-prod-net
+
+  # ── 5. Redis Distributed Cache & Session Store ─────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: farm360_redis
+    restart: always
+    command: >
+      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then
+        redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes;
+      else
+        redis-server --appendonly yes;
+      fi"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" ping; else redis-cli ping; fi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - farm360-prod-net
+
+networks:
+  farm360-prod-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

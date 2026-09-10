@@ -1,0 +1,43 @@
+{
+    # Global options
+    admin off
+}
+
+{$DOMAIN::80} {
+    # Response compression
+    encode gzip zstd
+
+    # Direct health check passthrough for external monitoring
+    handle /health* {
+        reverse_proxy backend:8000
+    }
+
+    # Reverse proxy to Next.js standalone frontend
+    handle {
+        reverse_proxy frontend:3000 {
+            # Disable buffering for Server-Sent Events (SSE) and LLM streaming
+            flush_interval -1
+
+            # Standard proxy headers
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Logging
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
