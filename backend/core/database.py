@@ -42,8 +42,21 @@ if DATABASE_URL.startswith("postgresql"):
         "pool_pre_ping": True,  # Checks connection health before checks
     }
 
-engine = create_async_engine(DATABASE_URL, **engine_kwargs)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+try:
+    engine = create_async_engine(DATABASE_URL, **engine_kwargs)
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+except Exception as e:
+    if "aiosqlite" in str(e):
+        logger.error(
+            "[Database] SQLite async driver 'aiosqlite' is not installed. "
+            "Install 'aiosqlite' or configure a valid PostgreSQL 'DATABASE_URL'."
+        )
+    elif "asyncpg" in str(e):
+        logger.error(
+            "[Database] PostgreSQL async driver 'asyncpg' is not installed. "
+            "Install 'asyncpg' or configure a valid 'DATABASE_URL'."
+        )
+    raise
 
 async def get_db_session():
     """Dependency generator that provides a scoped database session per request."""

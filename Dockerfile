@@ -21,11 +21,11 @@ COPY . .
 RUN chmod +x /app/entrypoint.sh
 
 # Verify critical imports work before runtime
-RUN python -c "from google import genai; print('✓ Google GenAI imported successfully')"
-RUN python -c "import torch; print('✓ PyTorch imported successfully')"
-RUN python -c "from loguru import logger; print('✓ Loguru imported successfully')"
-RUN python -c "from backend.core.database import Base; print('✓ Database Base imported successfully')"
-RUN python -c "from backend.models.database import Base; print('✓ Database models Base imported successfully')"
+RUN python -c "from google import genai; print('[OK] Google GenAI imported successfully')"
+RUN python -c "import torch; print('[OK] PyTorch imported successfully')"
+RUN python -c "from loguru import logger; print('[OK] Loguru imported successfully')"
+RUN python -c "from backend.core.database import Base; print('[OK] Database Base imported successfully')"
+RUN python -c "from backend.models.database import Base; print('[OK] Database models Base imported successfully')"
 
 EXPOSE 8000
 
