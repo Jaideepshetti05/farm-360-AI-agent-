@@ -15,7 +15,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 # ── Import models & metadata ──────────────────────────────────────────────────
-from backend.models.database import Base
+from backend.core.database import Base
 target_metadata = Base.metadata
 
 # this is the Alembic Config object, which provides

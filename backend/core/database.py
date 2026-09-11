@@ -2,8 +2,13 @@ import os
 import asyncio
 from typing import Optional
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 from backend.config import settings
 from loguru import logger
+
+# Authoritative Declarative Base and metadata for SQLAlchemy ORM models
+Base = declarative_base()
+metadata = Base.metadata
 
 _main_loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -50,3 +55,11 @@ async def get_db_session():
             raise
         finally:
             await session.close()
+
+
+# Automatically register all model definitions so Base.metadata is fully populated
+try:
+    import backend.models.database  # noqa: F401
+except ImportError:
+    pass
+

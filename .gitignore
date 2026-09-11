@@ -28,11 +28,15 @@ __pycache__/
 *.npz
 
 # ML model folders
-models/
+/models/
+machine_learning/models/
 crop_vision/models/
 animal_module/models/
 dairy_module/models/
 vision_v2/embeddings/
+!backend/models/
+!backend/models/*.py
+
 
 # ─── Environment & Secrets ────────────────────────────────────────────────────
 .env
@@ -134,7 +138,6 @@ node_modules/
 .env
 .env.local
 data/
-models/
 *.pkl
 *.pth
 *.h5

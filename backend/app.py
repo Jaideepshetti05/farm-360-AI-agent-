@@ -91,7 +91,7 @@ async def lifespan(app: FastAPI):
 
     # Run database schema initialization
     try:
-        from backend.models.database import Base
+        from backend.core.database import Base
         logger.info("[Database] Validating database schema and generating tables if missing...")
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

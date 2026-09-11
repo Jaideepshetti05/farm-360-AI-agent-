@@ -24,6 +24,8 @@ RUN chmod +x /app/entrypoint.sh
 RUN python -c "from google import genai; print('✓ Google GenAI imported successfully')"
 RUN python -c "import torch; print('✓ PyTorch imported successfully')"
 RUN python -c "from loguru import logger; print('✓ Loguru imported successfully')"
+RUN python -c "from backend.core.database import Base; print('✓ Database Base imported successfully')"
+RUN python -c "from backend.models.database import Base; print('✓ Database models Base imported successfully')"
 
 EXPOSE 8000
 
