@@ -1,9 +1,13 @@
 {
     # Global options
     admin off
+    # Disable automatic HTTPS for temporary public IP HTTP testing
+    auto_https off
 }
 
-{$DOMAIN::80} {
+# Temporary HTTP access via EC2 Public IP (http://15.252.240.130)
+# Listens on port 80 for all incoming requests without TLS/ACME requirements
+:80 {
     # Response compression
     encode gzip zstd
 
