@@ -56,5 +56,8 @@ USER nextjs
 
 EXPOSE 3000
 
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
+
 # Direct execution of Next.js standalone server without npm/tsc overhead
 CMD ["node", "server.js"]
